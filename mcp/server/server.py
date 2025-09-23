@@ -82,7 +82,7 @@ mcp = FastMCP("notes", lifespan=lifespan)
 
 # Constants
 sqlite_file_name = (
-    Path(__file__).parent.parent.parent / "mts" / "cmd" / "notes" / "notes.db"
+    Path(__file__).parent.parent.parent / "ntkpr" / "cmd" / "notes" / "notes.db"
 ).as_posix()
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 USER_AGENT = "mantis/1.0"
