@@ -122,12 +122,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+n", "n":
 			if m.focus == FocusTable {
 				m.app.CreateNewNote()
-				m.table.Focus()
+				m.updateTable(types.Default) // Update table to make sure new one is loaded
+
+				// Set cursor
+				lastIdx := len(*m.app.CurrentNotesListPtr) - 1
+				if lastIdx >= 0 {
+					m.table.SetCursor(lastIdx)
+					m.app.SelectCurrentNote(lastIdx)
+				}
+
 				m.textarea.SetValue(m.app.CurrentNoteContent())
-				m.updateTable(types.Default)
-				m.table.SetCursor(len(*m.app.CurrentNotesListPtr) - 1) // Set cursor to the last note
 				m.updateStatus()
-				//set focus to edit
+
+				// Set focus to edit
 				m.focus = FocusEdit
 				m.table.Blur()
 				m.textarea.Focus()

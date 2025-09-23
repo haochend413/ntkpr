@@ -35,7 +35,7 @@ type App struct {
 	//Notes selected based on NoteSelector
 
 	// The current note that is selected, in order to change and demo;
-	currentNote *models.Note
+	currentNote *models.Note // ok, so how should I handle different pointers and arrays ?
 	// In order to manage pending notes, We record the changed note IDs, and we send them back to database;
 	PendingNoteIDs []uint // ok on create we
 	DeletedNoteIDs []uint //
@@ -218,18 +218,13 @@ func (a *App) UndoDelete() {
 	if len(a.DeletedNoteIDs) == 0 {
 		return
 	}
-
 	lastDeletedID := a.DeletedNoteIDs[len(a.DeletedNoteIDs)-1]
-
 	deletedNote, exists := a.NotesMap[lastDeletedID]
 	if !exists {
 		return
 	}
-
 	a.DeletedNoteIDs = a.DeletedNoteIDs[:len(a.DeletedNoteIDs)-1]
-
 	a.NotesList = append(a.NotesList, deletedNote)
-
 	if len(a.RecentNotes) < 10 {
 		a.RecentNotes = append(a.RecentNotes, deletedNote)
 	}
@@ -241,14 +236,12 @@ func (a *App) SyncWithDatabase() {
 	pendingIDs := append([]uint{}, a.PendingNoteIDs...)
 	deletedIDs := append([]uint{}, a.DeletedNoteIDs...)
 	createIDs := append([]uint{}, a.CreateNoteIDs...)
-
 	// Make a copy of the notes map
 	notesMapCopy := make(map[uint]*models.Note, len(a.NotesMap))
 	for id, note := range a.NotesMap {
 		notesMapCopy[id] = note
 	}
 	a.mutex.Unlock()
-
 	// Sync with the database
 	updatedNotes, updatedTopics, err := a.db.SyncData(notesMapCopy, pendingIDs, deletedIDs, createIDs)
 	if err != nil {
