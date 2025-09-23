@@ -1,4 +1,4 @@
-# Ai-Note_Keeper
+# NoteKeeper
 Workflow tool
 
 Techs: 
@@ -11,4 +11,3 @@ Techs:
 Previous Version: 
 - v1: based on gocui 
 
-`go-callvis -debug github.com/haochend413/mantis/main`
