@@ -102,7 +102,7 @@ func (a *App) loadData() {
 	// Query the database for the maximum ID, including deleted notes
 	var maxID uint
 	if err := a.db.Conn.Table("notes").Select("MAX(id)").Row().Scan(&maxID); err != nil {
-		log.Printf("Error fetching max ID: %v", err)
+		maxID = 0
 	}
 
 	// Set the next ID for note creation
