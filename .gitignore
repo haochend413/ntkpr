@@ -119,5 +119,7 @@ env/
 .bubbletea_cache/
 bubbletea_build/
 
+# database 
+.db
 # General editor backups
 *~
