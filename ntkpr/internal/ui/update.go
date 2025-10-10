@@ -19,30 +19,49 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 		m.statusBar.SetWidth(m.width)
 
-		tableWidth := m.width/2 - 4
-		editWidth := m.width/2 - 4
+		// Calculate proportional widths
+		tableWidth := int(float64(m.width) * 0.4) // 45% of window width
+		editWidth := int(float64(m.width) * 0.59) // 45% of window width
+
+		// Table columns with proportional widths
+		idWidth := max(4, int(float64(tableWidth)*0.02))     // 8% of table width
+		timeWidth := max(1, int(float64(tableWidth)*0.15))   // 25% of table width
+		contentWidth := max(1, int(float64(tableWidth)*0.4)) // 52% of table width
+		topicsWidth := max(1, int(float64(tableWidth)*0.15)) // 15% of table width
+
 		columns := []table.Column{
-			{Title: "ID", Width: 4},
-			{Title: "Time", Width: 16},
-			{Title: "Content", Width: max(10, tableWidth-70)},
-			{Title: "Topics", Width: 20},
+			{Title: "ID", Width: idWidth},
+			{Title: "Time", Width: timeWidth},
+			{Title: "Content", Width: contentWidth},
+			{Title: "Topics", Width: topicsWidth},
 		}
 		m.table.SetColumns(columns)
+		m.table.SetWidth(tableWidth)
+
+		// Table height relative to window height
 		if m.focus == FocusSearch {
-			m.table.SetHeight(m.height - 10)
+			m.table.SetHeight(max(5, int(float64(m.height)*0.7))) // 70% of height
 		} else {
-			m.table.SetHeight(m.height - 8)
+			m.table.SetHeight(max(5, int(float64(m.height)*0.8))) // 80% of height
 		}
-		m.textarea.SetWidth(max(20, editWidth))
-		m.textarea.SetHeight(max(5, m.height/2-6))
-		m.searchInput.Width = tableWidth - 25
-		m.topicInput.Width = max(20, editWidth)
+
+		// Textarea dimensions relative to window size
+		m.textarea.SetWidth(editWidth)
+		m.textarea.SetHeight(max(5, int(float64(m.height)*0.4))) // 40% of height
+
+		// Search input width relative to table width
+		m.searchInput.Width = m.table.Width()
+
+		// Topic input width
+		m.topicInput.Width = max(15, editWidth)
+
+		// Topics table columns and dimensions
 		topicColumns := []table.Column{
-			{Title: "Topic", Width: max(20, editWidth-4)},
+			{Title: "Topic", Width: max(15, editWidth-4)},
 		}
 		m.topicsTable.SetColumns(topicColumns)
 		m.topicsTable.SetWidth(max(20, editWidth))
-		m.topicsTable.SetHeight(4)
+		m.topicsTable.SetHeight(max(3, int(float64(m.height)*0.15))) // 15% of height
 
 	case tea.KeyMsg:
 		switch msg.String() {
