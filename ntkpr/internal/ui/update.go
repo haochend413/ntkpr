@@ -24,10 +24,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		editWidth := int(float64(m.width) * 0.59) // 45% of window width
 
 		// Table columns with proportional widths
-		idWidth := max(4, int(float64(tableWidth)*0.02))     // 8% of table width
-		timeWidth := max(1, int(float64(tableWidth)*0.15))   // 25% of table width
-		contentWidth := max(1, int(float64(tableWidth)*0.4)) // 52% of table width
-		topicsWidth := max(1, int(float64(tableWidth)*0.15)) // 15% of table width
+		idWidth := max(4, int(float64(tableWidth)*0.02))      // 8% of table width
+		timeWidth := max(1, int(float64(tableWidth)*0.2))     // 25% of table width
+		contentWidth := max(1, int(float64(tableWidth)*0.43)) // 52% of table width
+		topicsWidth := max(1, int(float64(tableWidth)*0.15))  // 15% of table width
 
 		columns := []table.Column{
 			{Title: "ID", Width: idWidth},
@@ -53,14 +53,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.searchInput.Width = m.table.Width()
 
 		// Topic input width
-		m.topicInput.Width = max(15, editWidth)
+		m.topicInput.Width = editWidth
 
 		// Topics table columns and dimensions
 		topicColumns := []table.Column{
 			{Title: "Topic", Width: max(15, editWidth-4)},
 		}
 		m.topicsTable.SetColumns(topicColumns)
-		m.topicsTable.SetWidth(max(20, editWidth))
+		m.topicsTable.SetWidth(editWidth)
 		m.topicsTable.SetHeight(max(3, int(float64(m.height)*0.15))) // 15% of height
 
 	case tea.KeyMsg:
