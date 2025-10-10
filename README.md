@@ -1,4 +1,15 @@
 # NoteKeeper
+
+# Intallation GUide 
+
+require go ... 
+
+
+
+
+
+
+
 Workflow tool
 
 Techs: 
