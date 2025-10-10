@@ -43,19 +43,19 @@ func (m Model) View() string {
 		leftSide = tableBox
 	}
 
-	var fullTopicTableBox string
-	if m.focus == FocusFullTopic {
-		m.fullTopicTable.SetStyles(focusedTableStyle)
-		fullTopicTableBox = focusedStyle.Render(m.fullTopicTable.View())
-	} else {
-		m.fullTopicTable.SetStyles(baseTableStyle)
-		fullTopicTableBox = baseStyle.Render(m.fullTopicTable.View())
-	}
+	// var fullTopicTableBox string
+	// if m.focus == FocusFullTopic {
+	// 	m.fullTopicTable.SetStyles(focusedTableStyle)
+	// 	fullTopicTableBox = focusedStyle.Render(m.fullTopicTable.View())
+	// } else {
+	// 	m.fullTopicTable.SetStyles(baseTableStyle)
+	// 	fullTopicTableBox = baseStyle.Render(m.fullTopicTable.View())
+	// }
 
 	realLeft := lipgloss.JoinHorizontal(lipgloss.Left,
 
 		leftSide,
-		fullTopicTableBox,
+		// fullTopicTableBox,
 	)
 
 	var editBox string
