@@ -8,6 +8,11 @@ Clone these repos:
 git clone https://github.com/haochend413/AI-Note-Keeper.git
 git clone https://github.com/haochend413/bubbles.git
 
+(inside ntkpr folder) 
+
+go build -o c
+./c to run the program 
+
 Workflow tool
 
 Techs: 
