@@ -1,18 +1,6 @@
 # NoteKeeper
 
-# Intallation GUide 
-
-require go ... 
-
-Clone these repos:
-git clone https://github.com/haochend413/AI-Note-Keeper.git
-git clone https://github.com/haochend413/bubbles.git
-
-(inside ntkpr folder) 
-
-go build -o c
-./c to run the program 
-
+## Introduction
 Workflow tool
 
 Techs: 
@@ -25,4 +13,15 @@ Techs:
 Previous Version: 
 - v1: based on gocui 
 
-meeting
+## Intallation Guide 
+
+Clone these repos:
+git clone https://github.com/haochend413/AI-Note-Keeper.git
+git clone https://github.com/haochend413/bubbles.git
+
+inside ntkpr/internel/cmd/note : 
+
+go build -o c
+
+run the compiled file to start the program. 
+
