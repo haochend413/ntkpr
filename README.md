@@ -16,8 +16,10 @@ Previous Version:
 ## Intallation Guide 
 
 Clone these repos:
-git clone https://github.com/haochend413/AI-Note-Keeper.git
-git clone https://github.com/haochend413/bubbles.git
+
+[AI-Note_Keeper](https://github.com/haochend413/AI-Note-Keeper.git)
+
+[bubbles](https://github.com/haochend413/bubbles.git)
 
 inside ntkpr/internel/cmd/note : 
 
