@@ -274,7 +274,7 @@ func (m *Model) printSync(sync bool) string {
 	}
 }
 
-func (m *Model) updateStatus() {
+func (m *Model) updateStatusBar() {
 	m.statusBar.GetTag("filter").SetValue(string(m.NoteSelector))
 	m.statusBar.GetTag("NoteID").SetValue(strconv.Itoa(m.app.CurrentNoteID()))
 	m.statusBar.GetTag("LastUpdated").SetValue(m.app.CurrentNoteLastUpdate().Format("01-02 15:04"))

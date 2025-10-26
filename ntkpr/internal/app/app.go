@@ -177,7 +177,9 @@ func (a *App) CreateNewNote() {
 	a.NotesMap[note.ID] = note
 	// // a.FilteredNotesList = append(a.FilteredNotesList, note)
 	a.NotesList = append(a.NotesList, note)
-	*a.CurrentNotesListPtr = append(*a.CurrentNotesListPtr, note)
+	if a.CurrentNotesListPtr != &a.NotesList {
+		*a.CurrentNotesListPtr = append(*a.CurrentNotesListPtr, note)
+	}
 	a.currentNote = note
 
 }
@@ -225,9 +227,9 @@ func (a *App) UndoDelete() {
 	}
 	a.DeletedNoteIDs = a.DeletedNoteIDs[:len(a.DeletedNoteIDs)-1]
 	a.NotesList = append(a.NotesList, deletedNote)
-	if len(a.RecentNotes) < 10 {
-		a.RecentNotes = append(a.RecentNotes, deletedNote)
-	}
+	// if len(a.RecentNotes) < 10 {
+	// 	a.RecentNotes = append(a.RecentNotes, deletedNote)
+	// }
 }
 
 func (a *App) SyncWithDatabase() {

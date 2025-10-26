@@ -79,7 +79,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.topicsTable.Blur()
 				m.table.Focus()
 			}
-			m.updateStatus()
+			m.updateStatusBar()
 
 		case "enter":
 			switch m.focus {
@@ -104,7 +104,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.topicInput.SetValue("")
 				m.updateTopicsTable()
 			}
-			m.updateStatus()
+			m.updateStatusBar()
 
 		case "ctrl+s":
 			if m.focus == FocusEdit {
@@ -116,7 +116,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchInput.Blur()
 				m.topicInput.Blur()
 				m.topicsTable.Blur()
-				m.updateStatus()
+				m.updateStatusBar()
 
 			}
 		case "ctrl+n", "n":
@@ -132,7 +132,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				m.textarea.SetValue(m.app.CurrentNoteContent())
-				m.updateStatus()
+				m.updateStatusBar()
 
 				// Set focus to edit
 				m.focus = FocusEdit
@@ -150,7 +150,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateTopicsTable()
 			m.updateFullTopicTable()
 			m.app.UpdateRecentNotes()
-			m.updateStatus()
+			m.updateStatusBar()
+			m.textarea.SetValue(m.app.CurrentNoteContent())
 			return m, nil
 		case "ctrl+z":
 			if m.focus == FocusTable {
@@ -212,7 +213,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.app.UpdateCurrentList(m.NoteSelector)
 				m.updateTable(types.Recent)
 				m.table.SetCursor(0)
-				m.updateStatus()
+				m.updateStatusBar()
 			}
 			// return m, nil
 		case "A":
@@ -221,7 +222,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.app.UpdateCurrentList(m.NoteSelector)
 				m.updateTable(types.Default)
 				m.table.SetCursor(0)
-				m.updateStatus()
+				m.updateStatusBar()
 
 			}
 			// return m, nil
@@ -245,7 +246,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.topicsTable.SetCursor(len(m.app.CurrentNoteTopics()) - 1)
 			}
 		}
-		m.updateStatus()
+		m.updateStatusBar()
 	}
 
 	switch m.focus {

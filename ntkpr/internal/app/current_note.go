@@ -82,7 +82,6 @@ func (a *App) SaveCurrentNote(content string) {
 		a.Synced = false
 		a.PendingNoteIDs = append(a.PendingNoteIDs, noteID)
 	}
-
 }
 
 func (a *App) HighlightCurrentNote() {
