@@ -151,7 +151,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateFullTopicTable()
 			m.app.UpdateRecentNotes()
 			m.updateStatusBar()
-			m.textarea.SetValue(m.app.CurrentNoteContent())
+			m.app.SelectCurrentNote(m.table.Cursor())
+			// This is the fix, but there are deeper problems. This should not be necessary. The lists architecture needs to be further fixed.
 			return m, nil
 		case "ctrl+z":
 			if m.focus == FocusTable {

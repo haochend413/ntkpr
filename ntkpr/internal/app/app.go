@@ -31,7 +31,7 @@ type App struct {
 	FilteredNotesMap    map[uint]*models.Note
 	FilteredNotesList   []*models.Note  // For search;
 	RecentNotes         []*models.Note  // For Recent
-	CurrentNotesListPtr *[]*models.Note //It points to different stuff.
+	CurrentNotesListPtr *[]*models.Note //It points to different lists of notes.
 	//Notes selected based on NoteSelector
 
 	// The current note that is selected, in order to change and demo;
