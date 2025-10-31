@@ -8,6 +8,7 @@ import (
 
 // Update handles UI events and updates the model
 // On startup settings ?
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
