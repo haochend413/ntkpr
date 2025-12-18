@@ -8,8 +8,6 @@ import (
 	"github.com/haochend413/ntkpr/internal/models"
 )
 
-//is the mutex really required ? Well, maybe making current note public is a good idea, this is just stupid.
-
 // CurrentNoteContent returns the content of the current note
 func (a *App) CurrentNoteContent() string {
 	a.mutex.Lock()
@@ -30,7 +28,7 @@ func (a *App) CurrentNoteTopics() []*models.Topic {
 	return a.currentNote.Topics
 }
 
-// CurrentNoteTopics returns the topics of the current note
+// CurrentNoteID returns the ID of the current note or -1
 func (a *App) CurrentNoteID() int {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -65,34 +63,36 @@ func (a *App) HasCurrentNote() bool {
 	return a.currentNote != nil
 }
 
-// Update the content of current note, content fetched from terminal
+// SaveCurrentNote updates the current note content and marks it pending
 func (a *App) SaveCurrentNote(content string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	if a.currentNote == nil {
 		return
 	}
-	var noteID uint
-	if a.currentNote.ID != 0 {
-		noteID = a.currentNote.ID
+	if a.currentNote.Content == content {
+		return
 	}
-	if a.currentNote.Content != content {
-		a.currentNote.Content = content
-		a.currentNote.Frequency += 1
-		a.Synced = false
-		a.PendingNoteIDs = append(a.PendingNoteIDs, noteID)
-	}
+	a.currentNote.Content = content
+	a.currentNote.Frequency += 1
+	a.currentNote.UpdatedAt = time.Now()
+	a.Synced = false
+	a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
 }
 
 func (a *App) HighlightCurrentNote() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.HasCurrentNote() {
-		a.currentNote.Highlight = !a.currentNote.Highlight
+	if a.currentNote == nil {
+		return
 	}
+	a.currentNote.Highlight = !a.currentNote.Highlight
+	a.currentNote.UpdatedAt = time.Now()
+	a.Synced = false
+	a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
 }
 
-// AddTopicsToCurrentNote adds topics to the current note
+// AddTopicsToCurrentNote parses a comma-separated list and appends unique topics
 func (a *App) AddTopicsToCurrentNote(topicsText string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -104,6 +104,7 @@ func (a *App) AddTopicsToCurrentNote(topicsText string) {
 	if topicsText == "" {
 		return
 	}
+	changed := false
 	topicNames := strings.Split(topicsText, ",")
 	for _, topicName := range topicNames {
 		topicName = strings.TrimSpace(topicName)
@@ -121,15 +122,14 @@ func (a *App) AddTopicsToCurrentNote(topicsText string) {
 
 		if !exists {
 			a.currentNote.Topics = append(a.currentNote.Topics, topic)
+			changed = true
 		}
-
 	}
-	//mark as pending
-	a.Synced = false
-
-	a.PendingNoteIDs = append(a.PendingNoteIDs, a.currentNote.ID)
-	// a.notes[noteID] = *a.currentNote
-	// a.FilteredNotes[noteID] = *a.currentNote
+	if changed {
+		a.currentNote.UpdatedAt = time.Now()
+		a.Synced = false
+		a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
+	}
 }
 
 // RemoveTopicFromCurrentNote removes a topic from the current note
@@ -139,10 +139,6 @@ func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
 	if a.currentNote == nil {
 		return
 	}
-	var noteID uint
-	if a.currentNote.ID != 0 {
-		noteID = a.currentNote.ID
-	}
 
 	var newTopics []*models.Topic
 	for _, topic := range a.currentNote.Topics {
@@ -150,62 +146,81 @@ func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
 			newTopics = append(newTopics, topic)
 		}
 	}
+	if len(newTopics) == len(a.currentNote.Topics) {
+		return
+	}
 	a.currentNote.Topics = newTopics
+	a.currentNote.UpdatedAt = time.Now()
 	a.Synced = false
-
-	a.PendingNoteIDs = append(a.PendingNoteIDs, noteID)
+	a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
 }
 
-// DeleteCurrentNote deletes the current note in-memory
+// DeleteCurrentNote deletes the current note from the active list and marks for deletion if needed
 func (a *App) DeleteCurrentNote(cursor uint) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	// Check if there's a current note
 	if a.currentNote == nil {
 		return
 	}
 
-	// Get the note ID
 	noteID := a.currentNote.ID
-
-	// Handle differently based on note status
 	isInCreateList := slices.Contains(a.CreateNoteIDs, noteID)
 
 	if isInCreateList {
+		// Remove from CreateNoteIDs
 		for i, id := range a.CreateNoteIDs {
 			if id == noteID {
 				a.CreateNoteIDs = append(a.CreateNoteIDs[:i], a.CreateNoteIDs[i+1:]...)
-				//Remove it from the FilteredNotesList and Notes List
 				break
 			}
 		}
+		// Remove from NotesMap for newly created notes
+		delete(a.NotesMap, noteID)
 	} else if noteID != 0 {
 		a.DeletedNoteIDs = append(a.DeletedNoteIDs, noteID)
-		// Also remove from pending if it was pending
-		// for i, id := range a.PendingNoteIDs {
-		// 	if id == noteID {
-		// 		a.PendingNoteIDs = append(a.PendingNoteIDs[:i], a.PendingNoteIDs[i+1:]...)
-		// 		break
-		// 	}
-		// }
 	}
 
-	// so....it is still in notesMap;
-
-	// delete(*a.CurrentNotesListPtr, noteID)
-	for i, note := range *a.CurrentNotesListPtr {
+	// Remove from NotesList
+	for i, note := range a.NotesList {
 		if note.ID == noteID {
-			*a.CurrentNotesListPtr = append((*a.CurrentNotesListPtr)[:i], (*a.CurrentNotesListPtr)[i+1:]...)
+			a.NotesList = append(a.NotesList[:i], a.NotesList[i+1:]...)
 			break
+		}
+	}
+
+	// Remove from current list if it's different from NotesList
+	if a.CurrentNotesListPtr != &a.NotesList {
+		for i, note := range *a.CurrentNotesListPtr {
+			if note.ID == noteID {
+				*a.CurrentNotesListPtr = append((*a.CurrentNotesListPtr)[:i], (*a.CurrentNotesListPtr)[i+1:]...)
+				break
+			}
 		}
 	}
 	a.Synced = false
 
-	// Clear the current note reference
-	// This might need debugging and border conditions management;
-	if cursor >= uint(len(*a.CurrentNotesListPtr)) {
+	// adjust cursor 
+	if len(*a.CurrentNotesListPtr) == 0 {
+		a.currentNote = nil
+		a.Synced = false
+		return
+	}
+
+	if int(cursor) >= len(*a.CurrentNotesListPtr) {
 		cursor = uint(len(*a.CurrentNotesListPtr) - 1)
 	}
 	a.currentNote = (*a.CurrentNotesListPtr)[cursor]
+}
+
+func addUniqueID(ids []uint, id uint) []uint {
+	if id == 0 {
+		return ids
+	}
+	for _, existing := range ids {
+		if existing == id {
+			return ids
+		}
+	}
+	return append(ids, id)
 }

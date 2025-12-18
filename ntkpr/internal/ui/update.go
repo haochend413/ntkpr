@@ -145,8 +145,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "ctrl+q":
+			m.app.SaveCurrentNote(m.textarea.Value())
 			m.app.SyncWithDatabase()
-			// print("1111111")
 			m.updateTable(types.Default)
 			m.updateTopicsTable()
 			m.updateFullTopicTable()
@@ -205,9 +205,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focus = FocusSearch
 				m.searchInput.Focus()
 				m.table.Blur()
-				// m.table.SetHeight(m.height - 10)
-				// m.searchInput.SetValue("")
-				return m, nil // end the loop;
+				return m, nil
 			}
 		case "R":
 			if m.focus == FocusTable {
@@ -217,7 +215,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.table.SetCursor(0)
 				m.updateStatusBar()
 			}
-			// return m, nil
 		case "A":
 			if m.focus == FocusTable {
 				m.NoteSelector = types.Default
@@ -225,18 +222,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateTable(types.Default)
 				m.table.SetCursor(0)
 				m.updateStatusBar()
-
 			}
-			// return m, nil
-			// case "e":
-			// 	if m.focus == FocusTable {
-			// 		m.app.HighlightCurrentNote()
-			// 	}
-			// 	return m, nil
 		}
 
 	case table.MoveSelectMsg:
-		// tea.Printf("%s", "hihihihihihihi")
 		switch m.focus {
 		case FocusTable:
 			m.app.SelectCurrentNote(m.table.Cursor())
