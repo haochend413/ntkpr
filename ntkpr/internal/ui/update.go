@@ -90,6 +90,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.table.Focus()
 				m.searchInput.Blur()
 				m.updateTable(types.Search)
+				// Reset cursor to first result
+				if len(*m.app.CurrentNotesListPtr) > 0 {
+					m.table.SetCursor(0)
+					m.app.SelectCurrentNote(0)
+					m.textarea.SetValue(m.app.CurrentNoteContent())
+					m.updateTopicsTable()
+				}
+				m.updateStatusBar()
 			case FocusTable:
 				m.app.SelectCurrentNote(m.table.Cursor())
 				m.textarea.SetValue(m.app.CurrentNoteContent())
@@ -147,41 +155,71 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+q":
 			m.app.SaveCurrentNote(m.textarea.Value())
 			m.app.SyncWithDatabase()
-			m.updateTable(types.Default)
+			m.app.UpdateRecentNotes()
+			m.updateTable(m.NoteSelector)
 			m.updateTopicsTable()
 			m.updateFullTopicTable()
-			m.app.UpdateRecentNotes()
+
+			// Ensure cursor is valid after sync
+			if len(*m.app.CurrentNotesListPtr) > 0 {
+				cursor := m.table.Cursor()
+				if cursor >= len(*m.app.CurrentNotesListPtr) {
+					cursor = len(*m.app.CurrentNotesListPtr) - 1
+					m.table.SetCursor(cursor)
+				}
+				m.app.SelectCurrentNote(cursor)
+				m.textarea.SetValue(m.app.CurrentNoteContent())
+			}
 			m.updateStatusBar()
-			m.app.SelectCurrentNote(m.table.Cursor())
-			// This is the fix, but there are deeper problems. This should not be necessary. The lists architecture needs to be further fixed.
 			return m, nil
 		case "ctrl+z":
 			if m.focus == FocusTable {
+				restoredNoteID := m.app.GetLastDeletedNoteID()
 				m.app.UndoDelete()
 				m.app.UpdateCurrentList(m.NoteSelector)
 				m.updateTable(m.NoteSelector)
+
+				// Find the position of the restored note
+				if len(*m.app.CurrentNotesListPtr) > 0 && restoredNoteID > 0 {
+					foundIdx := 0
+					for i, note := range *m.app.CurrentNotesListPtr {
+						if note.ID == restoredNoteID {
+							foundIdx = i
+							break
+						}
+					}
+					m.table.SetCursor(foundIdx)
+					m.app.SelectCurrentNote(foundIdx)
+					m.textarea.SetValue(m.app.CurrentNoteContent())
+					m.updateTopicsTable()
+				}
+				m.updateStatusBar()
 			}
 
-		case "backspace":
+		case "ctrl+d":
 			switch m.focus {
 			case FocusTable:
-				m.app.DeleteCurrentNote(uint(m.table.Cursor()))
-				// Adjust cursor to a valid position
-				m.updateTable(types.Default)
+				oldCursor := m.table.Cursor()
+				m.app.DeleteCurrentNote(uint(oldCursor))
+				m.updateTable(m.NoteSelector)
+
+				// Keep cursor at same position (shows next item naturally)
 				if len(*m.app.CurrentNotesListPtr) > 0 {
-					newCursor := m.table.Cursor()
+					newCursor := oldCursor
 					if newCursor >= len(*m.app.CurrentNotesListPtr) {
 						newCursor = len(*m.app.CurrentNotesListPtr) - 1
 					}
 					m.table.SetCursor(newCursor)
 					m.app.SelectCurrentNote(newCursor)
+					m.textarea.SetValue(m.app.CurrentNoteContent())
+					m.updateTopicsTable()
 				} else {
 					m.app.SelectCurrentNote(0)
+					m.textarea.SetValue("")
+					m.updateTopicsTable()
 				}
-
-				m.textarea.SetValue(m.app.CurrentNoteContent())
-				m.updateTopicsTable()
 				m.updateFullTopicTable()
+				m.updateStatusBar()
 			case FocusTopics:
 				if m.app.HasCurrentNote() && len(m.app.CurrentNoteTopics()) > 0 {
 					// Remove the selected topic from the current note
@@ -212,7 +250,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.NoteSelector = types.Recent
 				m.app.UpdateCurrentList(m.NoteSelector)
 				m.updateTable(types.Recent)
-				m.table.SetCursor(0)
+				if len(*m.app.CurrentNotesListPtr) > 0 {
+					m.table.SetCursor(0)
+					m.app.SelectCurrentNote(0)
+					m.textarea.SetValue(m.app.CurrentNoteContent())
+					m.updateTopicsTable()
+				}
 				m.updateStatusBar()
 			}
 		case "A":
@@ -220,7 +263,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.NoteSelector = types.Default
 				m.app.UpdateCurrentList(m.NoteSelector)
 				m.updateTable(types.Default)
-				m.table.SetCursor(0)
+				if len(*m.app.CurrentNotesListPtr) > 0 {
+					m.table.SetCursor(0)
+					m.app.SelectCurrentNote(0)
+					m.textarea.SetValue(m.app.CurrentNoteContent())
+					m.updateTopicsTable()
+				}
 				m.updateStatusBar()
 			}
 		}

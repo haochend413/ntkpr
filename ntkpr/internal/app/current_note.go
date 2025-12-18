@@ -155,8 +155,8 @@ func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
 	a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
 }
 
-// DeleteCurrentNote deletes the current note from the active list and marks for deletion if needed
-func (a *App) DeleteCurrentNote(cursor uint) {
+// DeleteCurrentNote deletes the current note from the active list and marks it for persistence changes
+func (a *App) DeleteCurrentNote() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -200,7 +200,7 @@ func (a *App) DeleteCurrentNote(cursor uint) {
 	}
 	a.Synced = false
 
-	// adjust cursor 
+	// adjust cursor
 	if len(*a.CurrentNotesListPtr) == 0 {
 		a.currentNote = nil
 		a.Synced = false

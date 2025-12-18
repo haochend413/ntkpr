@@ -178,17 +178,17 @@ func (a *App) UpdateCurrentList(s types.Selector) {
 // SyncWithDatabase syncs in-memory changes to the database
 // This only work before we sync everything.
 
-func (a *App) UndoDelete() {
+func (a *App) UndoDelete() uint {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
 	if len(a.DeletedNoteIDs) == 0 {
-		return
+		return 0
 	}
 	lastDeletedID := a.DeletedNoteIDs[len(a.DeletedNoteIDs)-1]
 	deletedNote, exists := a.NotesMap[lastDeletedID]
 	if !exists {
-		return
+		return 0
 	}
 
 	// Remove from deleted list
@@ -223,6 +223,7 @@ func (a *App) UndoDelete() {
 	}
 
 	a.Synced = false
+	return deletedNote.ID
 }
 
 func (a *App) SyncWithDatabase() {
