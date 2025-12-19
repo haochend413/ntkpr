@@ -15,8 +15,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/haochend413/ntkpr/internal/app"
+	"github.com/haochend413/ntkpr/internal/app/context"
 	"github.com/haochend413/ntkpr/internal/models"
-	"github.com/haochend413/ntkpr/internal/types"
 )
 
 // FocusState represents the current UI focus
@@ -34,7 +34,7 @@ const (
 // Model represents the Bubble Tea model
 type Model struct {
 	app            *app.App
-	NoteSelector   types.Selector
+	NoteSelector   context.ContextPtr
 	table          table.Model
 	fullTopicTable table.Model
 	topicsTable    table.Model
@@ -160,7 +160,7 @@ func NewModel(application *app.App) Model {
 		topicInput:     topicInput,
 		focus:          FocusTable,
 	}
-	m.updateTable(types.Default)
+	m.updateTable(context.Default)
 	m.updateTopicsTable()
 	// print(len(m.app.Topics))
 	m.updateFullTopicTable()
@@ -199,17 +199,17 @@ func (m *Model) updateFullTopicTable() {
 	// print("aaaaa")
 }
 
-// updateTable updates the table rows based on the types.Selector; it also updates the types.Selector of the app;
-func (m *Model) updateTable(s types.Selector) {
-	m.NoteSelector = s
+// updateTable updates the table rows based on the context.ContextPtr; it also updates the context.ContextPtr of the app;
+func (m *Model) updateTable(c context.ContextPtr) {
+	m.NoteSelector = c
 	// This needs to be reflected to the terminal. Maybe a new architecture will do. Like a pointer to the list.
 	// We need to find a new way to deal with search.
 	var selectedNotes []*models.Note
-	switch s {
-	case types.Search:
-		selectedNotes = m.app.FilteredNotesList
-	default:
-		selectedNotes = *m.app.CurrentNotesListPtr
+	if c == context.Search {
+		// For search, we already switched context via SearchNotes
+		selectedNotes = m.app.GetCurrentNotes()
+	} else {
+		selectedNotes = m.app.GetCurrentNotes()
 	}
 	notes := make([]models.Note, 0, len(selectedNotes))
 	for _, note := range selectedNotes {
@@ -275,7 +275,18 @@ func (m *Model) printSync(sync bool) string {
 }
 
 func (m *Model) updateStatusBar() {
-	m.statusBar.GetTag("filter").SetValue(string(m.NoteSelector))
+	// Convert context.ContextPtr to string
+	contextName := "Default"
+	switch m.NoteSelector {
+	case context.Default:
+		contextName = "Default"
+	case context.Recent:
+		contextName = "Recent"
+	case context.Search:
+		contextName = "Search"
+	}
+	
+	m.statusBar.GetTag("filter").SetValue(contextName)
 	m.statusBar.GetTag("NoteID").SetValue(strconv.Itoa(m.app.CurrentNoteID()))
 	m.statusBar.GetTag("LastUpdated").SetValue(m.app.CurrentNoteLastUpdate().Format("01-02 15:04"))
 	m.statusBar.GetTag("Version").SetValue(strconv.Itoa(m.app.CurrentNoteFrequency()))

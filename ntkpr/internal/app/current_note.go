@@ -155,8 +155,8 @@ func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
 	a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
 }
 
-// DeleteCurrentNote deletes the current note from the active list and marks it for persistence changes
-func (a *App) DeleteCurrentNote() {
+// DeleteCurrentNote deletes the current note from the active list and marks for deletion if needed
+func (a *App) DeleteCurrentNote(cursor uint) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -181,36 +181,22 @@ func (a *App) DeleteCurrentNote() {
 		a.DeletedNoteIDs = append(a.DeletedNoteIDs, noteID)
 	}
 
-	// Remove from NotesList
-	for i, note := range a.NotesList {
-		if note.ID == noteID {
-			a.NotesList = append(a.NotesList[:i], a.NotesList[i+1:]...)
-			break
-		}
-	}
-
-	// Remove from current list if it's different from NotesList
-	if a.CurrentNotesListPtr != &a.NotesList {
-		for i, note := range *a.CurrentNotesListPtr {
-			if note.ID == noteID {
-				*a.CurrentNotesListPtr = append((*a.CurrentNotesListPtr)[:i], (*a.CurrentNotesListPtr)[i+1:]...)
-				break
-			}
-		}
-	}
+	// Remove from default context (and it will be reflected in other contexts)
+	a.contextMgr.RemoveNoteFromDefault(noteID)
 	a.Synced = false
 
 	// adjust cursor
-	if len(*a.CurrentNotesListPtr) == 0 {
+	notes := a.contextMgr.GetCurrentNotes()
+	if len(notes) == 0 {
 		a.currentNote = nil
-		a.Synced = false
 		return
 	}
 
-	if int(cursor) >= len(*a.CurrentNotesListPtr) {
-		cursor = uint(len(*a.CurrentNotesListPtr) - 1)
+	if int(cursor) >= len(notes) {
+		cursor = uint(len(notes) - 1)
 	}
-	a.currentNote = (*a.CurrentNotesListPtr)[cursor]
+	a.currentNote = notes[cursor]
+	a.contextMgr.SetCurrentCursor(cursor)
 }
 
 func addUniqueID(ids []uint, id uint) []uint {

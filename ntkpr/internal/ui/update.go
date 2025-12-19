@@ -3,7 +3,7 @@ package ui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/haochend413/bubbles/table"
-	"github.com/haochend413/ntkpr/internal/types"
+	"github.com/haochend413/ntkpr/internal/app/context"
 )
 
 // Update handles UI events and updates the model
@@ -69,7 +69,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.topicsTable.Blur()
 			case FocusEdit:
 				m.app.SaveCurrentNote(m.textarea.Value())
-				m.updateTable(types.Default)
+				m.updateTable(context.Default)
 				m.focus = FocusTopics
 				m.textarea.Blur()
 				m.topicInput.Focus()
@@ -89,15 +89,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focus = FocusTable
 				m.table.Focus()
 				m.searchInput.Blur()
-				m.updateTable(types.Search)
+				m.updateTable(context.Search)
 				// Reset cursor to first result
-				if len(*m.app.CurrentNotesListPtr) > 0 {
+				if len(m.app.GetCurrentNotes()) > 0 {
 					m.table.SetCursor(0)
 					m.app.SelectCurrentNote(0)
 					m.textarea.SetValue(m.app.CurrentNoteContent())
 					m.updateTopicsTable()
 				}
 				m.updateStatusBar()
+				
 			case FocusTable:
 				m.app.SelectCurrentNote(m.table.Cursor())
 				m.textarea.SetValue(m.app.CurrentNoteContent())
@@ -118,7 +119,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+s":
 			if m.focus == FocusEdit {
 				m.app.SaveCurrentNote(m.textarea.Value())
-				m.updateTable(types.Default)
+				m.updateTable(context.Default)
 				m.focus = FocusTable
 				m.table.Focus()
 				m.textarea.Blur()
@@ -131,10 +132,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+n", "n":
 			if m.focus == FocusTable {
 				m.app.CreateNewNote()
-				m.updateTable(types.Default) // Update table to make sure new one is loaded
+				m.updateTable(context.Default) // Update table to make sure new one is loaded
 
 				// Set cursor
-				lastIdx := len(*m.app.CurrentNotesListPtr) - 1
+				lastIdx := len(m.app.GetCurrentNotes()) - 1
 				if lastIdx >= 0 {
 					m.table.SetCursor(lastIdx)
 					m.app.SelectCurrentNote(lastIdx)
@@ -161,10 +162,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateFullTopicTable()
 
 			// Ensure cursor is valid after sync
-			if len(*m.app.CurrentNotesListPtr) > 0 {
+			if len(m.app.GetCurrentNotes()) > 0 {
 				cursor := m.table.Cursor()
-				if cursor >= len(*m.app.CurrentNotesListPtr) {
-					cursor = len(*m.app.CurrentNotesListPtr) - 1
+				if cursor >= len(m.app.GetCurrentNotes()) {
+					cursor = len(m.app.GetCurrentNotes()) - 1
 					m.table.SetCursor(cursor)
 				}
 				m.app.SelectCurrentNote(cursor)
@@ -180,9 +181,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateTable(m.NoteSelector)
 
 				// Find the position of the restored note
-				if len(*m.app.CurrentNotesListPtr) > 0 && restoredNoteID > 0 {
+				if len(m.app.GetCurrentNotes()) > 0 && restoredNoteID > 0 {
 					foundIdx := 0
-					for i, note := range *m.app.CurrentNotesListPtr {
+					for i, note := range m.app.GetCurrentNotes() {
 						if note.ID == restoredNoteID {
 							foundIdx = i
 							break
@@ -204,10 +205,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateTable(m.NoteSelector)
 
 				// Keep cursor at same position (shows next item naturally)
-				if len(*m.app.CurrentNotesListPtr) > 0 {
+				if len(m.app.GetCurrentNotes()) > 0 {
 					newCursor := oldCursor
-					if newCursor >= len(*m.app.CurrentNotesListPtr) {
-						newCursor = len(*m.app.CurrentNotesListPtr) - 1
+					if newCursor >= len(m.app.GetCurrentNotes()) {
+						newCursor = len(m.app.GetCurrentNotes()) - 1
 					}
 					m.table.SetCursor(newCursor)
 					m.app.SelectCurrentNote(newCursor)
@@ -234,11 +235,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				}
-				m.updateTable(types.Default) // Update note table to reflect topic changes
+				m.updateTable(context.Default) // Update note table to reflect topic changes
 			}
 		case "s":
 			if m.focus == FocusTable {
-				m.NoteSelector = types.Search
+				m.NoteSelector = context.Search
 				m.app.UpdateCurrentList(m.NoteSelector)
 				m.focus = FocusSearch
 				m.searchInput.Focus()
@@ -247,10 +248,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "R":
 			if m.focus == FocusTable {
-				m.NoteSelector = types.Recent
+				m.NoteSelector = context.Recent
 				m.app.UpdateCurrentList(m.NoteSelector)
-				m.updateTable(types.Recent)
-				if len(*m.app.CurrentNotesListPtr) > 0 {
+				m.updateTable(context.Recent)
+				if len(m.app.GetCurrentNotes()) > 0 {
 					m.table.SetCursor(0)
 					m.app.SelectCurrentNote(0)
 					m.textarea.SetValue(m.app.CurrentNoteContent())
@@ -260,10 +261,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "A":
 			if m.focus == FocusTable {
-				m.NoteSelector = types.Default
+				m.NoteSelector = context.Default
 				m.app.UpdateCurrentList(m.NoteSelector)
-				m.updateTable(types.Default)
-				if len(*m.app.CurrentNotesListPtr) > 0 {
+				m.updateTable(context.Default)
+				if len(m.app.GetCurrentNotes()) > 0 {
 					m.table.SetCursor(0)
 					m.app.SelectCurrentNote(0)
 					m.textarea.SetValue(m.app.CurrentNoteContent())

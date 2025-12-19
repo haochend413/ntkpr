@@ -2,31 +2,23 @@ package app
 
 import (
 	"log"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/haochend413/ntkpr/internal/app/context"
 	"github.com/haochend413/ntkpr/internal/db"
 	"github.com/haochend413/ntkpr/internal/models"
-	"github.com/haochend413/ntkpr/internal/types"
 )
 
 // App encapsulates application logic and state
 type App struct {
 	db *db.DB
-
-	NotesMap            map[uint]*models.Note
-	NotesList           []*models.Note
-	FilteredNotesList   []*models.Note
-	RecentNotes         []*models.Note
-	CurrentNotesListPtr *[]*models.Note
-
+	NotesMap   map[uint]*models.Note
+	contextMgr *context.ContextMgr
 	currentNote    *models.Note
 	PendingNoteIDs []uint
 	DeletedNoteIDs []uint
 	CreateNoteIDs  []uint
-
 	nextNoteCreateID uint
 	Synced           bool
 	Topics           map[uint]*models.Topic
@@ -36,15 +28,13 @@ type App struct {
 // NewApp creates a new application instance
 func NewApp(dbConn *db.DB) *App {
 	app := &App{
-		db:                dbConn,
-		NotesMap:          make(map[uint]*models.Note),
-		NotesList:         make([]*models.Note, 0),
-		FilteredNotesList: make([]*models.Note, 0),
-		RecentNotes:       make([]*models.Note, 0),
-		Topics:            make(map[uint]*models.Topic),
-		nextNoteCreateID:  1, // Default starting ID if database is empty
-		PendingNoteIDs:    []uint{},
-		DeletedNoteIDs:    []uint{},
+		db:               dbConn,
+		NotesMap:         make(map[uint]*models.Note),
+		contextMgr:       context.NewContextMgr(),
+		Topics:           make(map[uint]*models.Topic),
+		nextNoteCreateID: 1, // Default starting ID if database is empty
+		PendingNoteIDs:   []uint{},
+		DeletedNoteIDs:   []uint{},
 	}
 
 	//load everything into the app
@@ -63,13 +53,15 @@ func (a *App) loadData() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	// fill in the variables
-	a.FilteredNotesList = notes
-	a.NotesList = notes
 	a.NotesMap = make(map[uint]*models.Note, len(notes))
 	a.Topics = make(map[uint]*models.Topic, len(topics))
+	
+	// Initialize context manager with all notes
+	a.contextMgr.RefreshDefaultContext(notes)
+	
 	// init recent
-	recentNotes, _ := a.db.GetRecentNotes()
-	a.RecentNotes = recentNotes
+	a.contextMgr.RefreshRecentContext()
+	
 	for _, note := range notes {
 		a.NotesMap[note.ID] = note
 	}
@@ -77,7 +69,6 @@ func (a *App) loadData() {
 		a.Topics[topic.ID] = topic
 	}
 
-	a.CurrentNotesListPtr = &a.FilteredNotesList
 	// Query the database for the maximum ID, including deleted notes
 	var maxID uint
 	if err := a.db.Conn.Table("notes").Select("MAX(id)").Row().Scan(&maxID); err != nil {
@@ -88,32 +79,13 @@ func (a *App) loadData() {
 	a.nextNoteCreateID = maxID + 1
 }
 
-// SearchNotes searches the current list and populates FilteredNotesList
+// SearchNotes searches the current list and populates search context
 func (a *App) SearchNotes(query string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	curr := *a.CurrentNotesListPtr
-	if query == "" {
-		a.FilteredNotesList = curr
-		return
-	}
-	query = strings.ToLower(query)
-	a.FilteredNotesList = make([]*models.Note, 0)
-	for _, note := range curr {
-		if strings.Contains(strings.ToLower(note.Content), query) {
-			a.FilteredNotesList = append(a.FilteredNotesList, note)
-			continue
-		}
-		for _, topic := range note.Topics {
-			if strings.Contains(strings.ToLower(topic.Topic), query) {
-				a.FilteredNotesList = append(a.FilteredNotesList, note)
-				break
-			}
-		}
-	}
-	sort.Slice(a.FilteredNotesList, func(i, j int) bool {
-		return a.FilteredNotesList[i].ID < a.FilteredNotesList[j].ID
-	})
+	
+	a.contextMgr.RefreshSearchContext(query)
+	a.contextMgr.SwitchContext(context.Search)
 }
 
 // SelectCurrentNote sets the current note based on table cursor
@@ -123,11 +95,13 @@ func (a *App) SelectCurrentNote(cursor int) {
 	defer a.mutex.Unlock()
 
 	//This might be wrong: 1. needs sort;
-	if len(*a.CurrentNotesListPtr) == 0 || cursor >= len(*a.CurrentNotesListPtr) {
+	notes := a.contextMgr.GetCurrentNotes()
+	if len(notes) == 0 || cursor >= len(notes) {
 		a.currentNote = nil
 		return
 	}
-	a.currentNote = (*a.CurrentNotesListPtr)[cursor]
+	a.currentNote = notes[cursor]
+	a.contextMgr.SetCurrentCursor(uint(cursor))
 }
 
 // CreateNewNote creates a new pending note
@@ -142,88 +116,72 @@ func (a *App) CreateNewNote() {
 	a.Synced = false
 	a.CreateNoteIDs = append(a.CreateNoteIDs, note.ID)
 	a.NotesMap[note.ID] = note
-	a.NotesList = append(a.NotesList, note)
-	if a.CurrentNotesListPtr != &a.NotesList {
-		*a.CurrentNotesListPtr = append(*a.CurrentNotesListPtr, note)
-	}
+	a.contextMgr.AddNoteToDefault(note)
 	a.currentNote = note
 }
 
 func (a *App) UpdateRecentNotes() {
-	d, _ := a.db.GetRecentNotes()
-	//lock
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	// Sort by ID to match display order
-	sort.Slice(d, func(i, j int) bool {
-		return d[i].ID < d[j].ID
-	})
-	a.RecentNotes = d
+	
+	a.contextMgr.RefreshRecentContext()
 }
 
-func (a *App) UpdateCurrentList(s types.Selector) {
-	switch s {
-	case types.Default:
-		a.CurrentNotesListPtr = &a.NotesList
-	case types.Search:
-		a.CurrentNotesListPtr = &a.FilteredNotesList
-	case types.Recent:
-		a.CurrentNotesListPtr = &a.RecentNotes
-	}
-	sort.Slice(*a.CurrentNotesListPtr, func(i, j int) bool {
-		return (*a.CurrentNotesListPtr)[i].ID < (*a.CurrentNotesListPtr)[j].ID
-	})
+func (a *App) UpdateCurrentList(c context.ContextPtr) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	
+	a.contextMgr.SwitchContext(c)
+	a.contextMgr.SortCurrentContext()
+}
+
+// GetCurrentNotes returns the notes in the current context
+func (a *App) GetCurrentNotes() []*models.Note {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.contextMgr.GetCurrentNotes()
+}
+
+// GetCurrentContext returns the current context
+func (a *App) GetCurrentContext() context.ContextPtr {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.contextMgr.GetCurrentContext()
 }
 
 // SyncWithDatabase syncs in-memory changes to the database
 // This only work before we sync everything.
 
-func (a *App) UndoDelete() uint {
+// GetLastDeletedNoteID returns the ID of the last deleted note without removing it
+func (a *App) GetLastDeletedNoteID() uint {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
 	if len(a.DeletedNoteIDs) == 0 {
 		return 0
 	}
+	return a.DeletedNoteIDs[len(a.DeletedNoteIDs)-1]
+}
+
+func (a *App) UndoDelete() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	if len(a.DeletedNoteIDs) == 0 {
+		return
+	}
 	lastDeletedID := a.DeletedNoteIDs[len(a.DeletedNoteIDs)-1]
 	deletedNote, exists := a.NotesMap[lastDeletedID]
 	if !exists {
-		return 0
+		return
 	}
 
 	// Remove from deleted list
 	a.DeletedNoteIDs = a.DeletedNoteIDs[:len(a.DeletedNoteIDs)-1]
 
-	// Check if note already exists in NotesList (shouldn't happen but safeguard)
-	alreadyInNotesList := false
-	for _, note := range a.NotesList {
-		if note.ID == deletedNote.ID {
-			alreadyInNotesList = true
-			break
-		}
-	}
-
-	// Add back to NotesList if not already there
-	if !alreadyInNotesList {
-		a.NotesList = append(a.NotesList, deletedNote)
-	}
-
-	// Add back to current list if it's different from NotesList
-	if a.CurrentNotesListPtr != &a.NotesList {
-		alreadyInCurrentList := false
-		for _, note := range *a.CurrentNotesListPtr {
-			if note.ID == deletedNote.ID {
-				alreadyInCurrentList = true
-				break
-			}
-		}
-		if !alreadyInCurrentList {
-			*a.CurrentNotesListPtr = append(*a.CurrentNotesListPtr, deletedNote)
-		}
-	}
-
+	// Add back to default context
+	a.contextMgr.AddNoteToDefault(deletedNote)
 	a.Synced = false
-	return deletedNote.ID
 }
 
 func (a *App) SyncWithDatabase() {
@@ -249,7 +207,7 @@ func (a *App) SyncWithDatabase() {
 	defer a.mutex.Unlock()
 
 	// Update in-memory state with the fresh data from database
-	a.NotesList = updatedNotes
+	a.contextMgr.RefreshDefaultContext(updatedNotes)
 	a.NotesMap = make(map[uint]*models.Note, len(updatedNotes))
 	a.Topics = make(map[uint]*models.Topic, len(updatedTopics))
 
@@ -279,11 +237,9 @@ func (a *App) SyncWithDatabase() {
 		currentID := a.currentNote.ID
 		if note, exists := a.NotesMap[currentID]; exists {
 			a.currentNote = note
-		} else if len(a.NotesList) > 0 {
-			// If current note was deleted, select the first note
-			a.currentNote = a.NotesList[0]
 		} else {
-			a.currentNote = nil
+			// If current note was deleted, select the first note or nil
+			a.currentNote = a.contextMgr.GetCurrentNote()
 		}
 	}
 }

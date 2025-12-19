@@ -108,7 +108,7 @@ func (d *DB) deleteNotes(ids []uint) error {
 
 func (d *DB) loadAllNotesAndTopics() ([]*models.Note, []*models.Topic, error) {
 	var dbNotes []*models.Note
-	if err := d.Conn.Preload("Topics").Order("id ASC").Find(&dbNotes).Error; err != nil {
+	if err := d.Conn.Preload("Topics").Order("created_at ASC").Find(&dbNotes).Error; err != nil {
 		return nil, nil, err
 	}
 
