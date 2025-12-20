@@ -157,7 +157,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.app.SaveCurrentNote(m.textarea.Value())
 			m.app.SyncWithDatabase()
 			m.app.UpdateRecentNotes()
-			m.updateTable(m.NoteSelector)
+			m.updateTable(m.CurrentContext)
 			m.updateTopicsTable()
 			m.updateFullTopicTable()
 
@@ -175,10 +175,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "ctrl+z":
 			if m.focus == FocusTable {
-				restoredNoteID := m.app.GetLastDeletedNoteID()
+				// Get the last deleted note ID before undo
+				var restoredNoteID uint
+				for i := len(m.app.GetEditStack()) - 1; i >= 0; i-- {
+					id := m.app.GetEditStack()[i]
+					if edit := m.app.GetEdit(id); edit != nil && edit.EditType == 2 { // Delete type
+						restoredNoteID = id
+						break
+					}
+				}
+				
 				m.app.UndoDelete()
-				m.app.UpdateCurrentList(m.NoteSelector)
-				m.updateTable(m.NoteSelector)
+				m.app.UpdateCurrentList(m.CurrentContext)
+				m.updateTable(m.CurrentContext)
 
 				// Find the position of the restored note
 				if len(m.app.GetCurrentNotes()) > 0 && restoredNoteID > 0 {
@@ -202,7 +211,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case FocusTable:
 				oldCursor := m.table.Cursor()
 				m.app.DeleteCurrentNote(uint(oldCursor))
-				m.updateTable(m.NoteSelector)
+				m.updateTable(m.CurrentContext)
 
 				// Keep cursor at same position (shows next item naturally)
 				if len(m.app.GetCurrentNotes()) > 0 {
@@ -239,8 +248,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "s":
 			if m.focus == FocusTable {
-				m.NoteSelector = context.Search
-				m.app.UpdateCurrentList(m.NoteSelector)
+				m.CurrentContext = context.Search
+				m.app.UpdateCurrentList(m.CurrentContext)
 				m.focus = FocusSearch
 				m.searchInput.Focus()
 				m.table.Blur()
@@ -248,8 +257,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "R":
 			if m.focus == FocusTable {
-				m.NoteSelector = context.Recent
-				m.app.UpdateCurrentList(m.NoteSelector)
+				m.CurrentContext = context.Recent
+				m.app.UpdateCurrentList(m.CurrentContext)
 				m.updateTable(context.Recent)
 				if len(m.app.GetCurrentNotes()) > 0 {
 					m.table.SetCursor(0)
@@ -261,8 +270,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "A":
 			if m.focus == FocusTable {
-				m.NoteSelector = context.Default
-				m.app.UpdateCurrentList(m.NoteSelector)
+				m.CurrentContext = context.Default
+				m.app.UpdateCurrentList(m.CurrentContext)
 				m.updateTable(context.Default)
 				if len(m.app.GetCurrentNotes()) > 0 {
 					m.table.SetCursor(0)

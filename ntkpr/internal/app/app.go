@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/haochend413/ntkpr/internal/app/context"
+	editstack "github.com/haochend413/ntkpr/internal/app/editStack"
 	"github.com/haochend413/ntkpr/internal/db"
 	"github.com/haochend413/ntkpr/internal/models"
 )
@@ -15,10 +16,8 @@ type App struct {
 	db *db.DB
 	NotesMap   map[uint]*models.Note
 	contextMgr *context.ContextMgr
+	editMgr    *editstack.EditMgr
 	currentNote    *models.Note
-	PendingNoteIDs []uint
-	DeletedNoteIDs []uint
-	CreateNoteIDs  []uint
 	nextNoteCreateID uint
 	Synced           bool
 	Topics           map[uint]*models.Topic
@@ -31,10 +30,10 @@ func NewApp(dbConn *db.DB) *App {
 		db:               dbConn,
 		NotesMap:         make(map[uint]*models.Note),
 		contextMgr:       context.NewContextMgr(),
+		editMgr:          editstack.NewEditMgr(),
 		Topics:           make(map[uint]*models.Topic),
 		nextNoteCreateID: 1, // Default starting ID if database is empty
-		PendingNoteIDs:   []uint{},
-		DeletedNoteIDs:   []uint{},
+		Synced:           true,
 	}
 
 	//load everything into the app
@@ -46,7 +45,7 @@ func NewApp(dbConn *db.DB) *App {
 // This function also load all topics
 func (a *App) loadData() {
 	//fetch data from database;
-	notes, topics, err := a.db.SyncData(make(map[uint]*models.Note), nil, nil, nil)
+	notes, topics, err := a.db.SyncData(make(map[uint]*models.Note), make(map[uint]*editstack.Edit))
 	if err != nil {
 		log.Panic(err)
 	}
@@ -114,7 +113,10 @@ func (a *App) CreateNewNote() {
 	note.ID = a.nextNoteCreateID
 	a.nextNoteCreateID += 1
 	a.Synced = false
-	a.CreateNoteIDs = append(a.CreateNoteIDs, note.ID)
+	if err := a.editMgr.AddEdit(editstack.Create, note.ID); err != nil {
+		log.Printf("Error adding Create edit: %v", err)
+		return
+	}
 	a.NotesMap[note.ID] = note
 	a.contextMgr.AddNoteToDefault(note)
 	a.currentNote = note
@@ -149,35 +151,46 @@ func (a *App) GetCurrentContext() context.ContextPtr {
 	return a.contextMgr.GetCurrentContext()
 }
 
-// SyncWithDatabase syncs in-memory changes to the database
-// This only work before we sync everything.
-
-// GetLastDeletedNoteID returns the ID of the last deleted note without removing it
-func (a *App) GetLastDeletedNoteID() uint {
+// GetEditStack returns the edit stack for UI access
+func (a *App) GetEditStack() []uint {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-
-	if len(a.DeletedNoteIDs) == 0 {
-		return 0
-	}
-	return a.DeletedNoteIDs[len(a.DeletedNoteIDs)-1]
+	return a.editMgr.EditStack
 }
 
+// GetEdit returns an edit by ID
+func (a *App) GetEdit(id uint) *editstack.Edit {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.editMgr.EditMap[id]
+}
+
+// UndoDelete undoes the last delete operation
 func (a *App) UndoDelete() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	if len(a.DeletedNoteIDs) == 0 {
+	// Find the most recent delete from the edit stack
+	var lastDeletedID uint
+	for i := len(a.editMgr.EditStack) - 1; i >= 0; i-- {
+		id := a.editMgr.EditStack[i]
+		if edit, exists := a.editMgr.EditMap[id]; exists && edit.EditType == editstack.Delete {
+			lastDeletedID = id
+			break
+		}
+	}
+
+	if lastDeletedID == 0 {
 		return
 	}
-	lastDeletedID := a.DeletedNoteIDs[len(a.DeletedNoteIDs)-1]
+
 	deletedNote, exists := a.NotesMap[lastDeletedID]
 	if !exists {
 		return
 	}
 
-	// Remove from deleted list
-	a.DeletedNoteIDs = a.DeletedNoteIDs[:len(a.DeletedNoteIDs)-1]
+	// Remove the delete edit
+	a.editMgr.RemoveEdit(lastDeletedID)
 
 	// Add back to default context
 	a.contextMgr.AddNoteToDefault(deletedNote)
@@ -186,18 +199,18 @@ func (a *App) UndoDelete() {
 
 func (a *App) SyncWithDatabase() {
 	a.mutex.Lock()
-	// Make a copy of the IDs slices for the database operation
-	pendingIDs := append([]uint{}, a.PendingNoteIDs...)
-	deletedIDs := append([]uint{}, a.DeletedNoteIDs...)
-	createIDs := append([]uint{}, a.CreateNoteIDs...)
-	// Make a copy of the notes map
+	// Make a copy of the notes map and editMap
 	notesMapCopy := make(map[uint]*models.Note, len(a.NotesMap))
 	for id, note := range a.NotesMap {
 		notesMapCopy[id] = note
 	}
+	editMapCopy := make(map[uint]*editstack.Edit, len(a.editMgr.EditMap))
+	for id, edit := range a.editMgr.EditMap {
+		editMapCopy[id] = edit
+	}
 	a.mutex.Unlock()
-	// Sync with the database
-	updatedNotes, updatedTopics, err := a.db.SyncData(notesMapCopy, pendingIDs, deletedIDs, createIDs)
+	// Sync with the database using the editMap directly
+	updatedNotes, updatedTopics, err := a.db.SyncData(notesMapCopy, editMapCopy)
 	if err != nil {
 		log.Printf("Error syncing with database: %v", err)
 		return
@@ -225,11 +238,9 @@ func (a *App) SyncWithDatabase() {
 		a.Topics[topic.ID] = topic
 	}
 
-	// Set next ID and clear pending/deleted lists
+	// Set next ID and clear edit manager
 	a.nextNoteCreateID = maxID + 1
-	a.PendingNoteIDs = []uint{}
-	a.DeletedNoteIDs = []uint{}
-	a.CreateNoteIDs = []uint{}
+	a.editMgr.Clear()
 	a.Synced = true
 
 	// If we had a current note, try to find it in the updated notes

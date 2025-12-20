@@ -34,7 +34,7 @@ const (
 // Model represents the Bubble Tea model
 type Model struct {
 	app            *app.App
-	NoteSelector   context.ContextPtr
+	CurrentContext   context.ContextPtr
 	table          table.Model
 	fullTopicTable table.Model
 	topicsTable    table.Model
@@ -199,27 +199,22 @@ func (m *Model) updateFullTopicTable() {
 	// print("aaaaa")
 }
 
+
+// This is rather unecessary. We need more efficient ways. Easy actually : passing in more signals. 
 // updateTable updates the table rows based on the context.ContextPtr; it also updates the context.ContextPtr of the app;
 func (m *Model) updateTable(c context.ContextPtr) {
-	m.NoteSelector = c
+	m.CurrentContext = c
 	// This needs to be reflected to the terminal. Maybe a new architecture will do. Like a pointer to the list.
 	// We need to find a new way to deal with search.
 	var selectedNotes []*models.Note
-	if c == context.Search {
-		// For search, we already switched context via SearchNotes
-		selectedNotes = m.app.GetCurrentNotes()
-	} else {
-		selectedNotes = m.app.GetCurrentNotes()
-	}
-	notes := make([]models.Note, 0, len(selectedNotes))
-	for _, note := range selectedNotes {
-		notes = append(notes, *note)
-	}
+
+	selectedNotes = m.app.GetCurrentNotes()
+
 	// sort.Slice(notes, func(i, j int) bool {
 	// 	return notes[i].ID < notes[j].ID
 	// })
-	rows := make([]table.Row, len(notes))
-	for i, note := range notes {
+	rows := make([]table.Row, len(selectedNotes))
+	for i, note := range selectedNotes {
 		topics := make([]string, len(note.Topics))
 		for j, topic := range note.Topics {
 			topics[j] = topic.Topic
@@ -277,7 +272,7 @@ func (m *Model) printSync(sync bool) string {
 func (m *Model) updateStatusBar() {
 	// Convert context.ContextPtr to string
 	contextName := "Default"
-	switch m.NoteSelector {
+	switch m.CurrentContext {
 	case context.Default:
 		contextName = "Default"
 	case context.Recent:

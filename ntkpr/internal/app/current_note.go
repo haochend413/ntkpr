@@ -1,10 +1,11 @@
 package app
 
 import (
-	"slices"
+	"log"
 	"strings"
 	"time"
 
+	editstack "github.com/haochend413/ntkpr/internal/app/editStack"
 	"github.com/haochend413/ntkpr/internal/models"
 )
 
@@ -77,7 +78,9 @@ func (a *App) SaveCurrentNote(content string) {
 	a.currentNote.Frequency += 1
 	a.currentNote.UpdatedAt = time.Now()
 	a.Synced = false
-	a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
+		log.Printf("Error adding Update edit: %v", err)
+	}
 }
 
 func (a *App) HighlightCurrentNote() {
@@ -89,7 +92,9 @@ func (a *App) HighlightCurrentNote() {
 	a.currentNote.Highlight = !a.currentNote.Highlight
 	a.currentNote.UpdatedAt = time.Now()
 	a.Synced = false
-	a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
+		log.Printf("Error adding Update edit: %v", err)
+	}
 }
 
 // AddTopicsToCurrentNote parses a comma-separated list and appends unique topics
@@ -128,7 +133,9 @@ func (a *App) AddTopicsToCurrentNote(topicsText string) {
 	if changed {
 		a.currentNote.UpdatedAt = time.Now()
 		a.Synced = false
-		a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
+		if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
+			log.Printf("Error adding Update edit: %v", err)
+		}
 	}
 }
 
@@ -152,7 +159,9 @@ func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
 	a.currentNote.Topics = newTopics
 	a.currentNote.UpdatedAt = time.Now()
 	a.Synced = false
-	a.PendingNoteIDs = addUniqueID(a.PendingNoteIDs, a.currentNote.ID)
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
+		log.Printf("Error adding Update edit: %v", err)
+	}
 }
 
 // DeleteCurrentNote deletes the current note from the active list and marks for deletion if needed
@@ -165,20 +174,18 @@ func (a *App) DeleteCurrentNote(cursor uint) {
 	}
 
 	noteID := a.currentNote.ID
-	isInCreateList := slices.Contains(a.CreateNoteIDs, noteID)
 
-	if isInCreateList {
-		// Remove from CreateNoteIDs
-		for i, id := range a.CreateNoteIDs {
-			if id == noteID {
-				a.CreateNoteIDs = append(a.CreateNoteIDs[:i], a.CreateNoteIDs[i+1:]...)
-				break
-			}
-		}
-		// Remove from NotesMap for newly created notes
+	// Check if this note is in the Create list (newly created, not yet synced)
+	if edit, exists := a.editMgr.EditMap[noteID]; exists && edit.EditType == editstack.Create {
+		// Note was created but not synced - just remove it entirely
+		a.editMgr.RemoveEdit(noteID)
 		delete(a.NotesMap, noteID)
 	} else if noteID != 0 {
-		a.DeletedNoteIDs = append(a.DeletedNoteIDs, noteID)
+		// Note exists in DB - mark for deletion
+		if err := a.editMgr.AddEdit(editstack.Delete, noteID); err != nil {
+			log.Printf("Error adding Delete edit: %v", err)
+			return
+		}
 	}
 
 	// Remove from default context (and it will be reflected in other contexts)
@@ -197,16 +204,4 @@ func (a *App) DeleteCurrentNote(cursor uint) {
 	}
 	a.currentNote = notes[cursor]
 	a.contextMgr.SetCurrentCursor(cursor)
-}
-
-func addUniqueID(ids []uint, id uint) []uint {
-	if id == 0 {
-		return ids
-	}
-	for _, existing := range ids {
-		if existing == id {
-			return ids
-		}
-	}
-	return append(ids, id)
 }

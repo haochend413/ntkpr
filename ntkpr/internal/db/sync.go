@@ -5,14 +5,33 @@ import (
 	"log"
 	"strings"
 
+	editstack "github.com/haochend413/ntkpr/internal/app/editStack"
 	"github.com/haochend413/ntkpr/internal/models"
 	"gorm.io/gorm"
 )
 
-func (d *DB) SyncData(notesMap map[uint]*models.Note, pendingNoteIDs []uint, deletedNoteIDs []uint, createNoteIDs []uint) ([]*models.Note, []*models.Topic, error) {
-	createIDs := uniqueIDs(createNoteIDs)
-	pendingIDs := uniqueIDs(pendingNoteIDs)
-	deletedIDs := uniqueIDs(deletedNoteIDs)
+func (d *DB) SyncData(notesMap map[uint]*models.Note, editMap map[uint]*editstack.Edit) ([]*models.Note, []*models.Topic, error) {
+	// Categorize edits from the editMap
+	createIDs := make([]uint, 0)
+	pendingIDs := make([]uint, 0)
+	deletedIDs := make([]uint, 0)
+	
+	for id, edit := range editMap {
+		switch edit.EditType {
+		case editstack.Create:
+			createIDs = append(createIDs, id)
+		case editstack.Update:
+			pendingIDs = append(pendingIDs, id)
+		case editstack.Delete:
+			deletedIDs = append(deletedIDs, id)
+		case editstack.None:
+			// Skip - no DB operation needed
+		}
+	}
+	
+	createIDs = uniqueIDs(createIDs)
+	pendingIDs = uniqueIDs(pendingIDs)
+	deletedIDs = uniqueIDs(deletedIDs)
 
 	createLookup := make(map[uint]struct{}, len(createIDs))
 	for _, id := range createIDs {
