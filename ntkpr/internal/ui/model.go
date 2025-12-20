@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,7 +27,6 @@ const (
 	FocusEdit
 	FocusSearch
 	FocusTopics
-	FocusFullTopic
 )
 
 // Model represents the Bubble Tea model
@@ -36,7 +34,6 @@ type Model struct {
 	app            *app.App
 	CurrentContext   context.ContextPtr
 	table          table.Model
-	fullTopicTable table.Model
 	topicsTable    table.Model
 	textarea       textarea.Model
 	searchInput    textinput.Model
@@ -132,18 +129,6 @@ func NewModel(application *app.App) Model {
 	ti.CharLimit = 100
 	ti.Width = 50
 
-	fullTopicColumns := []table.Column{
-		{Title: "ID", Width: 5},
-		{Title: "Topic", Width: 10},
-	}
-
-	ftt := table.New(
-
-		table.WithColumns(fullTopicColumns),
-		table.WithFocused(true),
-		table.WithHeight(15),
-	)
-
 	topicInput := textinput.New()
 	topicInput.Placeholder = "Add topic (comma-separated)..."
 	topicInput.CharLimit = 200
@@ -155,15 +140,12 @@ func NewModel(application *app.App) Model {
 		topicsTable:    tt,
 		textarea:       ta,
 		searchInput:    ti,
-		fullTopicTable: ftt,
 		statusBar:      sb,
 		topicInput:     topicInput,
 		focus:          FocusTable,
 	}
 	m.updateTable(context.Default)
 	m.updateTopicsTable()
-	// print(len(m.app.Topics))
-	m.updateFullTopicTable()
 	return m
 }
 
@@ -171,34 +153,6 @@ func NewModel(application *app.App) Model {
 func (m Model) Init() tea.Cmd {
 	return textinput.Blink
 }
-
-func (m *Model) updateFullTopicTable() {
-	topics := make([]models.Topic, 0, len(m.app.Topics))
-	// print(len(m.app.Topics))
-	for _, t := range m.app.Topics {
-		topics = append(topics, *t)
-	}
-	sort.Slice(topics, func(i, j int) bool {
-		return topics[i].ID < topics[j].ID // Sort by ID (ascending)
-		// Or sort alphabetically:
-		// return topics[i].Topic < topics[j].Topic
-	})
-	rows := make([]table.Row, len(topics))
-	for i, t := range topics {
-		topicsStr := t.Topic
-		if len(topicsStr) > 18 {
-			topicsStr = topicsStr[:15] + "..."
-		}
-		idStr := fmt.Sprintf("%d", t.ID)
-		rows[i] = table.Row{
-			idStr,
-			topicsStr,
-		}
-	}
-	m.fullTopicTable.SetRows(rows)
-	// print("aaaaa")
-}
-
 
 // This is rather unecessary. We need more efficient ways. Easy actually : passing in more signals. 
 // updateTable updates the table rows based on the context.ContextPtr; it also updates the context.ContextPtr of the app;

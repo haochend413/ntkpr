@@ -43,21 +43,6 @@ func (m Model) View() string {
 		leftSide = tableBox
 	}
 
-	var fullTopicTableBox string
-	if m.focus == FocusFullTopic {
-		m.fullTopicTable.SetStyles(focusedTableStyle)
-		fullTopicTableBox = focusedStyle.Render(m.fullTopicTable.View())
-	} else {
-		m.fullTopicTable.SetStyles(baseTableStyle)
-		fullTopicTableBox = baseStyle.Render(m.fullTopicTable.View())
-	}
-
-	realLeft := lipgloss.JoinHorizontal(lipgloss.Left,
-
-		leftSide,
-		fullTopicTableBox,
-	)
-
 	var editBox string
 	if m.focus == FocusEdit {
 		editBox = focusedStyle.Render(m.textarea.View())
@@ -99,7 +84,7 @@ func (m Model) View() string {
 	// Create main content with fixed height to ensure bottom elements are pushed down
 	mainContent := lipgloss.NewStyle().
 		Height(mainContentHeight).
-		Render(lipgloss.JoinHorizontal(lipgloss.Top, realLeft, rightSide))
+		Render(lipgloss.JoinHorizontal(lipgloss.Top, leftSide, rightSide))
 
 	help := helpStyle.Render(
 		"Tab: cycle focus • Enter: select/search/add-topic • /: search • Ctrl+N: new note (table only) • Ctrl+S: save • Ctrl+Q: sync DB • Del: delete note/topic • Ctrl+C: quit",

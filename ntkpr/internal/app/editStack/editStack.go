@@ -16,33 +16,33 @@ The current content of each note is in default the newest version compared to da
 Functions here should be triggered when we enter keystrokes, handled by bubbletea update function.
 */
 
-type EditType = int 
+type EditType = int
 
 const (
-	None EditType = -1 
-	Create EditType = 0 
+	None   EditType = -1
+	Create EditType = 0
 	Update EditType = 1
 	Delete EditType = 2
 )
 
-// This is only note-wise, not string - wise 
-// Also there must be a good mechanis around all this. 
+// This is only note-wise, not string - wise
+// Also there must be a good mechanis around all this.
 type Edit struct {
-	NoteID uint // We need the same index generating mechanism as in database. 
-	EditType EditType 
+	NoteID   uint // We need the same index generating mechanism as in database.
+	EditType EditType
 }
 
 type EditMgr struct {
-	EditStack []uint // Time Order, keep this only for recent case. Actually not needed for functionality. 
-	EditMap map[uint]*Edit
+	EditStack []uint // Time Order, keep this only for recent case. Actually not needed for functionality.
+	EditMap   map[uint]*Edit
 }
 
-//This function sets up edit stack according to basic handling logic. 
-func (em * EditMgr) AddEdit(tp EditType, id uint) error {
-	em.EditStack = append(em.EditStack, id) 
+// This function sets up edit stack according to basic handling logic.
+func (em *EditMgr) AddEdit(tp EditType, id uint) error {
+	em.EditStack = append(em.EditStack, id)
 
-	// add to map, be sure of index ! 
-	// check 
+	// add to map, be sure of index !
+	// check
 	if edit, exists := em.EditMap[id]; exists {
 		// Key exists, edit contains the value
 		prevType := edit.EditType
@@ -56,7 +56,7 @@ func (em * EditMgr) AddEdit(tp EditType, id uint) error {
 			case Delete:
 				return fmt.Errorf("invalid state: attempting to Create note %d that is already marked for Delete", id)
 			}
-		case Update: 
+		case Update:
 			switch prevType {
 			case Create:
 				// Keep as Create - new note being edited before sync
@@ -66,14 +66,14 @@ func (em * EditMgr) AddEdit(tp EditType, id uint) error {
 			case Delete:
 				return fmt.Errorf("invalid state: attempting to Update note %d that is marked for Delete", id)
 			}
-		case Delete: 
+		case Delete:
 			switch prevType {
 			case Create:
 				// Created then deleted without sync, no DB operation needed
-				em.EditMap[id].EditType = None 
+				em.EditMap[id].EditType = None
 			case Update:
 				// Updated then deleted = need to delete from DB
-				em.EditMap[id].EditType = Delete 
+				em.EditMap[id].EditType = Delete
 			case Delete:
 				return fmt.Errorf("invalid state: attempting to Delete note %d that is already marked for Delete", id)
 			}
@@ -82,7 +82,7 @@ func (em * EditMgr) AddEdit(tp EditType, id uint) error {
 		// Key doesn't exist, this is a new edit
 		em.EditMap[id] = &Edit{NoteID: id, EditType: tp}
 	}
-	
+
 	return nil
 }
 

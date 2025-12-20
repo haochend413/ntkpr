@@ -13,11 +13,11 @@ import (
 
 // App encapsulates application logic and state
 type App struct {
-	db *db.DB
-	NotesMap   map[uint]*models.Note
-	contextMgr *context.ContextMgr
-	editMgr    *editstack.EditMgr
-	currentNote    *models.Note
+	db               *db.DB
+	NotesMap         map[uint]*models.Note
+	contextMgr       *context.ContextMgr
+	editMgr          *editstack.EditMgr
+	currentNote      *models.Note
 	nextNoteCreateID uint
 	Synced           bool
 	Topics           map[uint]*models.Topic
@@ -54,13 +54,13 @@ func (a *App) loadData() {
 	// fill in the variables
 	a.NotesMap = make(map[uint]*models.Note, len(notes))
 	a.Topics = make(map[uint]*models.Topic, len(topics))
-	
+
 	// Initialize context manager with all notes
 	a.contextMgr.RefreshDefaultContext(notes)
-	
+
 	// init recent
 	a.contextMgr.RefreshRecentContext()
-	
+
 	for _, note := range notes {
 		a.NotesMap[note.ID] = note
 	}
@@ -82,7 +82,7 @@ func (a *App) loadData() {
 func (a *App) SearchNotes(query string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	
+
 	a.contextMgr.RefreshSearchContext(query)
 	a.contextMgr.SwitchContext(context.Search)
 }
@@ -125,14 +125,14 @@ func (a *App) CreateNewNote() {
 func (a *App) UpdateRecentNotes() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	
+
 	a.contextMgr.RefreshRecentContext()
 }
 
 func (a *App) UpdateCurrentList(c context.ContextPtr) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	
+
 	a.contextMgr.SwitchContext(c)
 	a.contextMgr.SortCurrentContext()
 }

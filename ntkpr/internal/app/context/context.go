@@ -8,30 +8,32 @@ import (
 )
 
 type ContextPtr int
+
 const (
-	None ContextPtr = -1 
+	None    ContextPtr = -1
 	Default ContextPtr = 0
 	Recent  ContextPtr = 1
-	Search  ContextPtr = 2 
+	Search  ContextPtr = 2
 )
 
-type ContextOrder int 
+type ContextOrder int
+
 const (
 	CreateAt ContextOrder = 0 // default , time order
-	UpdateAt ContextOrder = 1  // recent, most recently updated 
+	UpdateAt ContextOrder = 1 // recent, most recently updated
 )
 
 type Context struct {
-    Name   ContextPtr
-    Notes  []*models.Note
-	Order ContextOrder
-    Cursor uint
+	Name   ContextPtr
+	Notes  []*models.Note
+	Order  ContextOrder
+	Cursor uint
 }
 
 type ContextMgr struct {
 	previousContext ContextPtr
-	currentContext ContextPtr 
-	Contexts []*Context 
+	currentContext  ContextPtr
+	Contexts        []*Context
 }
 
 // NewContextMgr creates a new context manager with all contexts initialized
@@ -47,32 +49,32 @@ func NewContextMgr() *ContextMgr {
 	}
 }
 
-func (cm *ContextMgr) SwitchContext (c ContextPtr) {
-	// make sure they are different 
-	if (c != cm.currentContext) {
+func (cm *ContextMgr) SwitchContext(c ContextPtr) {
+	// make sure they are different
+	if c != cm.currentContext {
 		cm.previousContext = cm.currentContext
-		cm.currentContext  = c 
+		cm.currentContext = c
 	}
 }
 
-func (cm * ContextMgr) GetCurrentNotes () []*models.Note {
+func (cm *ContextMgr) GetCurrentNotes() []*models.Note {
 	return cm.Contexts[cm.currentContext].Notes
 }
 
-func (cm * ContextMgr) GetCurrentContext() ContextPtr {
+func (cm *ContextMgr) GetCurrentContext() ContextPtr {
 	return cm.currentContext
 }
 
-func (cm * ContextMgr) GetPreviousContext() ContextPtr {
+func (cm *ContextMgr) GetPreviousContext() ContextPtr {
 	return cm.previousContext
 }
 
 func (cm *ContextMgr) RefreshDefaultContext(notes []*models.Note) {
-	cm.Contexts[Default].Notes = notes 
+	cm.Contexts[Default].Notes = notes
 }
 
 func (cm *ContextMgr) RefreshRecentContext() {
-	// we should fetch the newest ~ 20 notes from default context 
+	// we should fetch the newest ~ 20 notes from default context
 	notes := cm.Contexts[Default].Notes
 	// Create a copy to avoid modifying the original slice
 	notesCopy := make([]*models.Note, len(notes))
@@ -81,48 +83,47 @@ func (cm *ContextMgr) RefreshRecentContext() {
 	sort.Slice(notesCopy, func(i, j int) bool {
 		return notesCopy[i].UpdatedAt.After(notesCopy[j].UpdatedAt)
 	})
-	// fetch top 
+	// fetch top
 	recentCount := 20
 	if len(notesCopy) < recentCount {
 		recentCount = len(notesCopy)
 	}
 	cm.Contexts[Recent].Notes = notesCopy[:recentCount]
-} 
-
+}
 
 func (cm *ContextMgr) RefreshSearchContext(q string) {
-    // first, get the current note list 
-    // I am not sure whether this is correct. 
-    c := cm.currentContext
-    if cm.currentContext == Search {
-        c = cm.previousContext
-    }
-    notes := cm.Contexts[c].Notes
+	// first, get the current note list
+	// I am not sure whether this is correct.
+	c := cm.currentContext
+	if cm.currentContext == Search {
+		c = cm.previousContext
+	}
+	notes := cm.Contexts[c].Notes
 
-    //loop through and search 
-    if q == "" {
-        cm.Contexts[Search].Notes = notes
-        return
-    }
-    query := strings.ToLower(q)
-    filteredNotes := make([]*models.Note, 0)
-    for _, note := range notes {
-        if strings.Contains(strings.ToLower(note.Content), query) {
-            filteredNotes = append(filteredNotes, note)
-            continue
-        }
-        for _, topic := range note.Topics {
-            if strings.Contains(strings.ToLower(topic.Topic), query) {
-                filteredNotes = append(filteredNotes, note)
-                break
-            }
-        }
-    }
-    // Sort by CreatedAt to maintain chronological order
-    sort.Slice(filteredNotes, func(i, j int) bool {
-        return filteredNotes[i].CreatedAt.Before(filteredNotes[j].CreatedAt)
-    })
-    cm.Contexts[Search].Notes = filteredNotes
+	//loop through and search
+	if q == "" {
+		cm.Contexts[Search].Notes = notes
+		return
+	}
+	query := strings.ToLower(q)
+	filteredNotes := make([]*models.Note, 0)
+	for _, note := range notes {
+		if strings.Contains(strings.ToLower(note.Content), query) {
+			filteredNotes = append(filteredNotes, note)
+			continue
+		}
+		for _, topic := range note.Topics {
+			if strings.Contains(strings.ToLower(topic.Topic), query) {
+				filteredNotes = append(filteredNotes, note)
+				break
+			}
+		}
+	}
+	// Sort by CreatedAt to maintain chronological order
+	sort.Slice(filteredNotes, func(i, j int) bool {
+		return filteredNotes[i].CreatedAt.Before(filteredNotes[j].CreatedAt)
+	})
+	cm.Contexts[Search].Notes = filteredNotes
 }
 
 // GetCurrentCursor returns the cursor position in the current context
@@ -132,7 +133,7 @@ func (cm *ContextMgr) GetCurrentCursor() uint {
 
 // SetCurrentCursor sets the cursor position in the current context
 func (cm *ContextMgr) SetCurrentCursor(cursor uint) {
-	cm.Contexts[cm.currentContext].Cursor = cursor 
+	cm.Contexts[cm.currentContext].Cursor = cursor
 }
 
 // GetCurrentNote returns the note at the current cursor position, or nil if invalid
@@ -185,7 +186,7 @@ func (cm *ContextMgr) SortCurrentContext() {
 	notes := cm.Contexts[cm.currentContext].Notes
 	order := cm.Contexts[cm.currentContext].Order
 
-	// well this is in place ! careful! 
+	// well this is in place ! careful!
 	switch order {
 	case CreateAt:
 		sort.Slice(notes, func(i, j int) bool {
@@ -195,12 +196,9 @@ func (cm *ContextMgr) SortCurrentContext() {
 		sort.Slice(notes, func(i, j int) bool {
 			return notes[i].UpdatedAt.After(notes[j].UpdatedAt)
 		})
-	default : 
+	default:
 		sort.Slice(notes, func(i, j int) bool {
 			return notes[i].CreatedAt.Before(notes[j].CreatedAt)
 		})
 	}
 }
-
-
-

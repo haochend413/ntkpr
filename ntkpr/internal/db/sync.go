@@ -15,7 +15,7 @@ func (d *DB) SyncData(notesMap map[uint]*models.Note, editMap map[uint]*editstac
 	createIDs := make([]uint, 0)
 	pendingIDs := make([]uint, 0)
 	deletedIDs := make([]uint, 0)
-	
+
 	for id, edit := range editMap {
 		switch edit.EditType {
 		case editstack.Create:
@@ -28,7 +28,7 @@ func (d *DB) SyncData(notesMap map[uint]*models.Note, editMap map[uint]*editstac
 			// Skip - no DB operation needed
 		}
 	}
-	
+
 	createIDs = uniqueIDs(createIDs)
 	pendingIDs = uniqueIDs(pendingIDs)
 	deletedIDs = uniqueIDs(deletedIDs)

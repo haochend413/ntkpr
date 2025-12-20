@@ -98,7 +98,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.updateTopicsTable()
 				}
 				m.updateStatusBar()
-				
+
 			case FocusTable:
 				m.app.SelectCurrentNote(m.table.Cursor())
 				m.textarea.SetValue(m.app.CurrentNoteContent())
@@ -159,7 +159,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.app.UpdateRecentNotes()
 			m.updateTable(m.CurrentContext)
 			m.updateTopicsTable()
-			m.updateFullTopicTable()
 
 			// Ensure cursor is valid after sync
 			if len(m.app.GetCurrentNotes()) > 0 {
@@ -184,7 +183,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						break
 					}
 				}
-				
+
 				m.app.UndoDelete()
 				m.app.UpdateCurrentList(m.CurrentContext)
 				m.updateTable(m.CurrentContext)
@@ -228,7 +227,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textarea.SetValue("")
 					m.updateTopicsTable()
 				}
-				m.updateFullTopicTable()
 				m.updateStatusBar()
 			case FocusTopics:
 				if m.app.HasCurrentNote() && len(m.app.CurrentNoteTopics()) > 0 {
