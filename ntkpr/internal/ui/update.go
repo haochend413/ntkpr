@@ -10,65 +10,65 @@ import (
 
 // Global keys that work in any mode
 type globalKeyMap struct {
-	quit key.Binding
-	tab  key.Binding
+	QuitApp       key.Binding
+	SwitchContext key.Binding
 }
 
 var globalKeys = globalKeyMap{
-	quit: key.NewBinding(key.WithKeys("ctrl+c")),
-	tab:  key.NewBinding(key.WithKeys("tab")),
+	QuitApp:       key.NewBinding(key.WithKeys("ctrl+c")),
+	SwitchContext: key.NewBinding(key.WithKeys("tab")),
 }
 
 // Table focus keys
 type tableKeyMap struct {
-	enter   key.Binding
-	newNote key.Binding
-	sync    key.Binding
-	undo    key.Binding
-	delete  key.Binding
-	search  key.Binding
-	recent  key.Binding
-	all     key.Binding
+	GoToTextArea     key.Binding
+	CreateNewNote    key.Binding
+	SyncWithDB       key.Binding
+	Retract          key.Binding
+	DeleteNote       key.Binding
+	SwitchCtxSearch  key.Binding
+	SwitchCtxRecent  key.Binding
+	SwitchCtxDefault key.Binding
 }
 
 var tableKeys = tableKeyMap{
-	enter:   key.NewBinding(key.WithKeys("enter")),
-	newNote: key.NewBinding(key.WithKeys("ctrl+n", "n")),
-	sync:    key.NewBinding(key.WithKeys("ctrl+q")),
-	undo:    key.NewBinding(key.WithKeys("ctrl+z")),
-	delete:  key.NewBinding(key.WithKeys("ctrl+d")),
-	search:  key.NewBinding(key.WithKeys("s")),
-	recent:  key.NewBinding(key.WithKeys("R")),
-	all:     key.NewBinding(key.WithKeys("A")),
+	GoToTextArea:     key.NewBinding(key.WithKeys("enter")),
+	CreateNewNote:    key.NewBinding(key.WithKeys("ctrl+n", "n")),
+	SyncWithDB:       key.NewBinding(key.WithKeys("ctrl+q")),
+	Retract:          key.NewBinding(key.WithKeys("ctrl+z")),
+	DeleteNote:       key.NewBinding(key.WithKeys("ctrl+d")),
+	SwitchCtxSearch:  key.NewBinding(key.WithKeys("s")),
+	SwitchCtxRecent:  key.NewBinding(key.WithKeys("R")),
+	SwitchCtxDefault: key.NewBinding(key.WithKeys("A")),
 }
 
 // Search focus keys
 type searchKeyMap struct {
-	enter key.Binding
+	Enter key.Binding
 }
 
 var searchKeys = searchKeyMap{
-	enter: key.NewBinding(key.WithKeys("enter")),
+	Enter: key.NewBinding(key.WithKeys("enter")),
 }
 
 // Edit focus keys
 type editKeyMap struct {
-	save key.Binding
+	SaveCurrentNote key.Binding
 }
 
 var editKeys = editKeyMap{
-	save: key.NewBinding(key.WithKeys("ctrl+s")),
+	SaveCurrentNote: key.NewBinding(key.WithKeys("ctrl+s")),
 }
 
 // Topics focus keys
 type topicsKeyMap struct {
-	enter  key.Binding
-	delete key.Binding
+	AddTopic    key.Binding
+	DeleteTopic key.Binding
 }
 
 var topicsKeys = topicsKeyMap{
-	enter:  key.NewBinding(key.WithKeys("enter")),
-	delete: key.NewBinding(key.WithKeys("ctrl+d")),
+	AddTopic:    key.NewBinding(key.WithKeys("enter")),
+	DeleteTopic: key.NewBinding(key.WithKeys("ctrl+d")),
 }
 
 // Update handles UI events and updates the model
@@ -113,13 +113,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Handle global keys first
 		switch {
-		case key.Matches(msg, globalKeys.quit):
+		case key.Matches(msg, globalKeys.QuitApp):
 			s := m.CollectState()
 			state.SaveState(s) // on quit, save state
 			m.app.SaveCurrentNote(m.textarea.Value())
 			m.app.SyncWithDatabase()
 			return m, tea.Quit
-		case key.Matches(msg, globalKeys.tab):
+		case key.Matches(msg, globalKeys.SwitchContext):
 			switch m.focus {
 			case FocusSearch:
 				m.focus = FocusTable
@@ -154,7 +154,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.focus {
 		case FocusSearch:
 			switch {
-			case key.Matches(msg, searchKeys.enter):
+			case key.Matches(msg, searchKeys.Enter):
 				m.app.SearchNotes(m.searchInput.Value())
 				m.focus = FocusTable
 				m.table.Focus()
@@ -172,7 +172,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case FocusTable:
 			switch {
-			case key.Matches(msg, tableKeys.enter):
+			case key.Matches(msg, tableKeys.GoToTextArea):
 				m.app.SelectCurrentNote(m.table.Cursor())
 				m.textarea.SetValue(m.app.CurrentNoteContent())
 				m.focus = FocusEdit
@@ -183,7 +183,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateTopicsTable()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.newNote):
+			case key.Matches(msg, tableKeys.CreateNewNote):
 				m.app.CreateNewNote()
 				m.updateTable(context.Default) // Update table to make sure new one is loaded
 
@@ -205,7 +205,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.topicsTable.Blur()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.sync):
+			case key.Matches(msg, tableKeys.SyncWithDB):
 				m.app.SaveCurrentNote(m.textarea.Value())
 				m.app.SyncWithDatabase()
 				m.app.UpdateRecentNotes()
@@ -225,7 +225,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateStatusBar()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.undo):
+			case key.Matches(msg, tableKeys.Retract):
 				// Get the last deleted note ID before undo
 				var restoredNoteID uint
 				for i := len(m.app.GetEditStack()) - 1; i >= 0; i-- {
@@ -256,7 +256,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.updateStatusBar()
 
-			case key.Matches(msg, tableKeys.delete):
+			case key.Matches(msg, tableKeys.DeleteNote):
 				oldCursor := m.table.Cursor()
 				m.app.DeleteCurrentNote(uint(oldCursor))
 				m.updateTable(m.CurrentContext)
@@ -278,7 +278,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.updateStatusBar()
 
-			case key.Matches(msg, tableKeys.search):
+			case key.Matches(msg, tableKeys.SwitchCtxSearch):
 				m.CurrentContext = context.Search
 				m.app.UpdateCurrentList(m.CurrentContext)
 				m.focus = FocusSearch
@@ -286,7 +286,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.table.Blur()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.recent):
+			case key.Matches(msg, tableKeys.SwitchCtxRecent):
 				m.CurrentContext = context.Recent
 				m.app.UpdateCurrentList(m.CurrentContext)
 				m.updateTable(context.Recent)
@@ -298,7 +298,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.updateStatusBar()
 
-			case key.Matches(msg, tableKeys.all):
+			case key.Matches(msg, tableKeys.SwitchCtxDefault):
 				m.CurrentContext = context.Default
 				m.app.UpdateCurrentList(m.CurrentContext)
 				m.updateTable(context.Default)
@@ -313,7 +313,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case FocusEdit:
 			switch {
-			case key.Matches(msg, editKeys.save):
+			case key.Matches(msg, editKeys.SaveCurrentNote):
 				m.app.SaveCurrentNote(m.textarea.Value())
 				m.updateTable(context.Default)
 				m.focus = FocusTable
@@ -327,13 +327,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case FocusTopics:
 			switch {
-			case key.Matches(msg, topicsKeys.enter):
+			case key.Matches(msg, topicsKeys.AddTopic):
 				m.app.AddTopicsToCurrentNote(m.topicInput.Value())
 				m.topicInput.SetValue("")
 				m.updateTopicsTable()
 				m.updateStatusBar()
 
-			case key.Matches(msg, topicsKeys.delete):
+			case key.Matches(msg, topicsKeys.DeleteTopic):
 				if m.app.HasCurrentNote() && len(m.app.CurrentNoteTopics()) > 0 {
 					// Remove the selected topic from the current note
 					topics := m.app.CurrentNoteTopics()
