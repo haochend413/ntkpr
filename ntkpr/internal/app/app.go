@@ -36,7 +36,6 @@ func NewApp(dbConn *db.DB) *App {
 		Synced:           true,
 	}
 
-	//load everything into the app
 	app.loadData()
 	return app
 }
@@ -69,13 +68,13 @@ func (a *App) loadData() {
 	}
 
 	// Query the database for the maximum ID, including deleted notes
-	var maxID uint
-	if err := a.db.Conn.Table("notes").Select("MAX(id)").Row().Scan(&maxID); err != nil {
-		maxID = 0
-	}
+	// var maxID uint
+	// if err := a.db.Conn.Table("notes").Select("MAX(id)").Row().Scan(&maxID); err != nil {
+	// 	maxID = 0
+	// }
 
 	// Set the next ID for note creation
-	a.nextNoteCreateID = maxID + 1
+	a.nextNoteCreateID = a.db.GetCreateNoteID()
 }
 
 // SearchNotes searches the current list and populates search context

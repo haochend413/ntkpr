@@ -4,10 +4,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/haochend413/bubbles/table"
 	"github.com/haochend413/ntkpr/internal/app/context"
+	"github.com/haochend413/ntkpr/state"
 )
 
 // Update handles UI events and updates the model
-// On startup settings ?
+// On startup settings ? Yeah this is definitely important.
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -48,6 +49,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
+			s := m.CollectState()
+			state.SaveState(s) // on quit, save state
 			m.app.SaveCurrentNote(m.textarea.Value())
 			m.app.SyncWithDatabase()
 			return m, tea.Quit

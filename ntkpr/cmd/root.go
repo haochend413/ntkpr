@@ -9,6 +9,7 @@ import (
 	"github.com/haochend413/ntkpr/internal/app"
 	"github.com/haochend413/ntkpr/internal/db"
 	"github.com/haochend413/ntkpr/internal/ui"
+	"github.com/haochend413/ntkpr/state"
 	"github.com/spf13/cobra"
 )
 
@@ -25,11 +26,17 @@ var rootCmd = &cobra.Command{
 		}
 		defer dbConn.Close()
 
+		//get state
+		s, err := state.LoadState()
+		if err != nil {
+			log.Fatal("Failed to load state:", err)
+		}
+
 		// Initialize application
 		application := app.NewApp(dbConn)
 
 		// Initialize UI model
-		model := ui.NewModel(application)
+		model := ui.NewModel(application, s)
 
 		// Run Bubble Tea program
 		p := tea.NewProgram(model, tea.WithAltScreen())

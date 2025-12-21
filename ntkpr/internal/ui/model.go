@@ -16,6 +16,7 @@ import (
 	"github.com/haochend413/ntkpr/internal/app"
 	"github.com/haochend413/ntkpr/internal/app/context"
 	"github.com/haochend413/ntkpr/internal/models"
+	"github.com/haochend413/ntkpr/state"
 )
 
 // FocusState represents the current UI focus
@@ -32,7 +33,7 @@ const (
 // Model represents the Bubble Tea model
 type Model struct {
 	app            *app.App
-	CurrentContext   context.ContextPtr
+	CurrentContext context.ContextPtr
 	table          table.Model
 	topicsTable    table.Model
 	textarea       textarea.Model
@@ -46,7 +47,12 @@ type Model struct {
 }
 
 // NewModel initializes a new UI model
-func NewModel(application *app.App) Model {
+func NewModel(application *app.App, s *state.State) Model {
+	// Use default state if nil
+	if s == nil {
+		s = state.DefaultState()
+	}
+
 	columns := []table.Column{
 		{Title: "ID", Width: 4},
 		{Title: "Time", Width: 16},
@@ -135,29 +141,37 @@ func NewModel(application *app.App) Model {
 	topicInput.Width = 50
 
 	m := Model{
-		app:            application,
-		table:          t,
-		topicsTable:    tt,
-		textarea:       ta,
-		searchInput:    ti,
-		statusBar:      sb,
-		topicInput:     topicInput,
-		focus:          FocusTable,
+		app:         application,
+		table:       t,
+		topicsTable: tt,
+		textarea:    ta,
+		searchInput: ti,
+		statusBar:   sb,
+		topicInput:  topicInput,
+		focus:       FocusTable,
 	}
-	m.updateTable(context.Default)
+
+	//set states ?
+	m.DistributeState(s)
 	m.updateTopicsTable()
+	m.updateStatusBar()
+
 	return m
 }
 
 // Init initializes the Bubble Tea model
 func (m Model) Init() tea.Cmd {
-	return textinput.Blink
+	// Blink ?
+	cmds := []tea.Cmd{}
+	cmds = append(cmds, textinput.Blink)
+	return tea.Batch(cmds...)
 }
 
-// This is rather unecessary. We need more efficient ways. Easy actually : passing in more signals. 
+// This is rather unecessary. We need more efficient ways. Easy actually : passing in more signals.
 // updateTable updates the table rows based on the context.ContextPtr; it also updates the context.ContextPtr of the app;
 func (m *Model) updateTable(c context.ContextPtr) {
 	m.CurrentContext = c
+	m.app.UpdateCurrentList(c) // Switch the app's context to match
 	// This needs to be reflected to the terminal. Maybe a new architecture will do. Like a pointer to the list.
 	// We need to find a new way to deal with search.
 	var selectedNotes []*models.Note
@@ -234,7 +248,7 @@ func (m *Model) updateStatusBar() {
 	case context.Search:
 		contextName = "Search"
 	}
-	
+
 	m.statusBar.GetTag("filter").SetValue(contextName)
 	m.statusBar.GetTag("NoteID").SetValue(strconv.Itoa(m.app.CurrentNoteID()))
 	m.statusBar.GetTag("LastUpdated").SetValue(m.app.CurrentNoteLastUpdate().Format("01-02 15:04"))
