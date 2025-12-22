@@ -21,25 +21,29 @@ var globalKeys = globalKeyMap{
 
 // Table focus keys
 type tableKeyMap struct {
-	GoToTextArea     key.Binding
-	CreateNewNote    key.Binding
-	SyncWithDB       key.Binding
-	Retract          key.Binding
-	DeleteNote       key.Binding
-	SwitchCtxSearch  key.Binding
-	SwitchCtxRecent  key.Binding
-	SwitchCtxDefault key.Binding
+	GoToTextArea         key.Binding
+	CreateNewNote        key.Binding
+	SyncWithDB           key.Binding
+	Retract              key.Binding
+	DeleteNote           key.Binding
+	SwitchCtxSearch      key.Binding
+	SwitchCtxRecent      key.Binding
+	SwitchCtxDefault     key.Binding
+	HighlightCurrentNote key.Binding
+	PrivatizeCurrentNote key.Binding
 }
 
 var tableKeys = tableKeyMap{
-	GoToTextArea:     key.NewBinding(key.WithKeys("enter")),
-	CreateNewNote:    key.NewBinding(key.WithKeys("ctrl+n", "n")),
-	SyncWithDB:       key.NewBinding(key.WithKeys("ctrl+q")),
-	Retract:          key.NewBinding(key.WithKeys("ctrl+z")),
-	DeleteNote:       key.NewBinding(key.WithKeys("ctrl+d")),
-	SwitchCtxSearch:  key.NewBinding(key.WithKeys("s")),
-	SwitchCtxRecent:  key.NewBinding(key.WithKeys("R")),
-	SwitchCtxDefault: key.NewBinding(key.WithKeys("A")),
+	GoToTextArea:         key.NewBinding(key.WithKeys("enter")),
+	CreateNewNote:        key.NewBinding(key.WithKeys("ctrl+n", "n")),
+	SyncWithDB:           key.NewBinding(key.WithKeys("ctrl+q")),
+	Retract:              key.NewBinding(key.WithKeys("ctrl+z")),
+	DeleteNote:           key.NewBinding(key.WithKeys("ctrl+d")),
+	HighlightCurrentNote: key.NewBinding((key.WithKeys("ctrl+h"))),
+	PrivatizeCurrentNote: key.NewBinding(key.WithKeys("ctrl+p")),
+	SwitchCtxSearch:      key.NewBinding(key.WithKeys("S")),
+	SwitchCtxRecent:      key.NewBinding(key.WithKeys("R")),
+	SwitchCtxDefault:     key.NewBinding(key.WithKeys("A")),
 }
 
 // Search focus keys
@@ -91,6 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "ID", Width: 4},
 			{Title: "Time", Width: 16},
 			{Title: "Content", Width: max(10, tableWidth-70)},
+			{Title: "Flags", Width: 6},
 			{Title: "Topics", Width: 20},
 		}
 		m.table.SetColumns(columns)
@@ -203,6 +208,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textarea.Focus()
 				m.topicInput.Blur()
 				m.topicsTable.Blur()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.HighlightCurrentNote):
+				m.app.ToggleCurrentNoteHighlight()
+				m.updateTable(m.CurrentContext)
+				return m, nil
+
+			case key.Matches(msg, tableKeys.PrivatizeCurrentNote):
+				m.app.ToggleCurrentNotePrivate()
+				m.updateTable(m.CurrentContext)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.SyncWithDB):

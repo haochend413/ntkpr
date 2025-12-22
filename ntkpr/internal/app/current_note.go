@@ -83,16 +83,30 @@ func (a *App) SaveCurrentNote(content string) {
 	}
 }
 
-func (a *App) HighlightCurrentNote() {
+func (a *App) ToggleCurrentNoteHighlight() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	if a.currentNote == nil {
 		return
 	}
 	a.currentNote.Highlight = !a.currentNote.Highlight
-	a.currentNote.UpdatedAt = time.Now()
+	a.currentNote.UpdatedAt = time.Now() // I think this is kinda required since we are not always syncing with DB. Maybe do a db state simulation.
 	a.Synced = false
-	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil { // note-wise : append to editMgr
+		log.Printf("Error adding Update edit: %v", err)
+	}
+}
+
+func (a *App) ToggleCurrentNotePrivate() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	if a.currentNote == nil {
+		return
+	}
+	a.currentNote.Private = !a.currentNote.Private
+	a.currentNote.UpdatedAt = time.Now() // I think this is kinda required since we are not always syncing with DB. Maybe do a db state simulation.
+	a.Synced = false
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil { // note-wise : append to editMgr
 		log.Printf("Error adding Update edit: %v", err)
 	}
 }

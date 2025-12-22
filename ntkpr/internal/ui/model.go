@@ -57,8 +57,10 @@ func NewModel(application *app.App, s *state.State) Model {
 		{Title: "ID", Width: 4},
 		{Title: "Time", Width: 16},
 		{Title: "Content", Width: 40},
+		{Title: "Flags", Width: 6},
 		{Title: "Topics", Width: 20},
 	}
+
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithFocused(true),
@@ -201,10 +203,20 @@ func (m *Model) updateTable(c context.ContextPtr) {
 			idStr = "P" // Indicate pending
 			timeStr = time.Now().Format("06-01-02 15:04")
 		}
+
+		flagStrRaw := ""
+		if note.Highlight {
+			flagStrRaw += "H"
+		}
+		if note.Private {
+			flagStrRaw += "P"
+		}
+
 		rows[i] = table.Row{
 			idStr,
 			timeStr,
 			content,
+			flagStrRaw,
 			topicsStr,
 		}
 	}
