@@ -39,7 +39,7 @@ func stateFilePath() (string, error) {
 	case "darwin":
 		path = "~/Library/Application Support/ntkpr/state.json"
 	case "linux":
-		path = "~/.local/share/ntkpr/state.json"
+		path = "~/.local/state/ntkpr/state.json"
 	case "windows":
 		path = "%APPDATA%\\ntkpr\\state.json"
 	default:
