@@ -5,14 +5,32 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/haochend413/ntkpr/internal/app/context"
 )
 
 // Default STATE PATH for macOS
-var STATE_FILE_PATH string = "~/Library/Application Support/ntkpr/state.json"
+
+func stateFilePath() (string, error) {
+	var path string
+
+	switch runtime.GOOS {
+	case "darwin":
+		path = "~/Library/Application Support/ntkpr/state.json"
+	case "linux":
+		path = "~/.local/share/ntkpr/state.json"
+	case "windows":
+		path = "%APPDATA%\\ntkpr\\state.json"
+	default:
+		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+	}
+
+	return expandPath(path)
+}
 
 type State struct {
 	LastContext context.ContextPtr `json:"lastContext"` // previous context
@@ -28,7 +46,8 @@ func DefaultState() *State {
 }
 
 func LoadState() (*State, error) {
-	path, err := expandPath(STATE_FILE_PATH)
+	p, _ := stateFilePath()
+	path, err := expandPath(p)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +69,8 @@ func LoadState() (*State, error) {
 }
 
 func SaveState(s *State) error {
-	path, err := expandPath(STATE_FILE_PATH)
+	p, _ := stateFilePath()
+	path, err := expandPath(p)
 	if err != nil {
 		return err
 	}
