@@ -14,6 +14,23 @@ import (
 )
 
 // Default STATE PATH for macOS
+// expandPath expands ~ to home directory
+func expandPath(path string) (string, error) {
+	if len(path) == 0 || path[0] != '~' {
+		return path, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	if len(path) == 1 {
+		return home, nil
+	}
+
+	return filepath.Join(home, path[2:]), nil
+}
 
 func stateFilePath() (string, error) {
 	var path string
@@ -46,8 +63,7 @@ func DefaultState() *State {
 }
 
 func LoadState() (*State, error) {
-	p, _ := stateFilePath()
-	path, err := expandPath(p)
+	path, err := stateFilePath()
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +85,7 @@ func LoadState() (*State, error) {
 }
 
 func SaveState(s *State) error {
-	p, _ := stateFilePath()
-	path, err := expandPath(p)
+	path, err := stateFilePath()
 	if err != nil {
 		return err
 	}
@@ -93,22 +108,4 @@ func SaveState(s *State) error {
 	}
 
 	return os.Rename(tmp, path)
-}
-
-// expandPath expands ~ to home directory
-func expandPath(path string) (string, error) {
-	if len(path) == 0 || path[0] != '~' {
-		return path, nil
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	if len(path) == 1 {
-		return home, nil
-	}
-
-	return filepath.Join(home, path[2:]), nil
 }
