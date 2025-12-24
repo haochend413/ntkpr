@@ -25,11 +25,6 @@ func DefaultState() *State {
 }
 
 func LoadState(path string) (*State, error) {
-	// path, err := stateFilePath()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return DefaultState(), nil
@@ -47,11 +42,6 @@ func LoadState(path string) (*State, error) {
 }
 
 func SaveState(path string, s *State) error {
-	// path, err := stateFilePath()
-	// if err != nil {
-	// 	return err
-	// }
-
 	// Ensure directory exists
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
