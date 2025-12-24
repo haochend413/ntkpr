@@ -120,7 +120,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, globalKeys.QuitApp):
 			s := m.CollectState()
-			state.SaveState(s) // on quit, save state
+			state.SaveState(m.Config.StateFilePath, s) // on quit, save state
 			m.app.SaveCurrentNote(m.textarea.Value())
 			m.app.SyncWithDatabase()
 			return m, tea.Quit

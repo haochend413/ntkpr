@@ -13,6 +13,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/haochend413/ntkpr/config"
 	"github.com/haochend413/ntkpr/internal/app"
 	"github.com/haochend413/ntkpr/internal/app/context"
 	"github.com/haochend413/ntkpr/internal/models"
@@ -33,6 +34,7 @@ const (
 // Model represents the Bubble Tea model
 type Model struct {
 	app            *app.App
+	Config         *config.Config
 	CurrentContext context.ContextPtr
 	table          table.Model
 	topicsTable    table.Model
@@ -47,10 +49,14 @@ type Model struct {
 }
 
 // NewModel initializes a new UI model
-func NewModel(application *app.App, s *state.State) Model {
+func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	// Use default state if nil
 	if s == nil {
 		s = state.DefaultState()
+	}
+	if cfg == nil {
+		temp := config.LoadOrCreateConfig()
+		cfg = &temp
 	}
 
 	columns := []table.Column{
@@ -144,6 +150,7 @@ func NewModel(application *app.App, s *state.State) Model {
 
 	m := Model{
 		app:         application,
+		Config:      cfg,
 		table:       t,
 		topicsTable: tt,
 		textarea:    ta,
@@ -153,7 +160,7 @@ func NewModel(application *app.App, s *state.State) Model {
 		focus:       FocusTable,
 	}
 
-	//set states ?
+	//set states
 	m.DistributeState(s)
 	m.updateTopicsTable()
 	m.updateStatusBar()
