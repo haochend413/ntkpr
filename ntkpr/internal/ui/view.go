@@ -11,39 +11,27 @@ func (m Model) View() string {
 		return "Initializing..."
 	}
 
-	// Calculate space for main content (everything except help and status bar)
-	// Reserve 2 lines for help and status bar
-	mainContentHeight := m.height - 3
+	// Main content height is set in Update, use it for layout
+	mainContentHeight := m.height - 3 // Reserve 3 lines for help + status bar
 
-	// Calculate table height based on this available space
-	tableHeight := mainContentHeight - 6 // Default height when search is not visible
-
+	// Render left side (table and optionally search)
 	var leftSide string
 	if m.focus == FocusSearch {
-		// When search is visible, make the table shorter
-		tableHeight = mainContentHeight - 9 // Reduce height to accommodate search
-
-		// Set the table height dynamically
-		m.table.SetHeight(tableHeight)
-
+		// Both search and table visible
 		searchBox := styles.FocusedStyle.Render(m.searchInput.View())
 		tableBox := m.renderTableBox()
 
-		// Join with bottom alignment to ensure content grows from top
-		leftSide = lipgloss.JoinVertical(lipgloss.Bottom,
+		leftSide = lipgloss.JoinVertical(lipgloss.Top,
 			searchBox,
 			tableBox,
 		)
 	} else {
-		// When search is not visible, make the table taller
-		m.table.SetHeight(tableHeight)
-
+		// Only table visible
 		tableBox := m.renderTableBox()
-
-		// No search box, just render the table with bottom alignment
 		leftSide = tableBox
 	}
 
+	// Render right side (textarea, topics table, topic input)
 	var editBox string
 	if m.focus == FocusEdit {
 		editBox = styles.FocusedStyle.Render(m.textarea.View())
@@ -53,18 +41,9 @@ func (m Model) View() string {
 
 	var topicsTableBox string
 	if m.focus == FocusTopics {
-		// When focused, use a minimal highlight style
-		topicsTableBox = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("69")).
-			Width(max(20, m.width/2-4)).
-			MaxHeight(4).
-			Render(m.topicsTable.View())
+		topicsTableBox = styles.FocusedStyle.Render(m.topicsTable.View())
 	} else {
-		// When not focused, use an even more minimal style
-		topicsTableBox = lipgloss.NewStyle().
-			Width(max(20, m.width/2-4)).
-			MaxHeight(4).
-			Render(m.topicsTable.View())
+		topicsTableBox = styles.BaseStyle.Render(m.topicsTable.View())
 	}
 
 	var topicInputBox string
@@ -77,12 +56,12 @@ func (m Model) View() string {
 	rightSide := lipgloss.JoinVertical(lipgloss.Left,
 		editBox,
 		styles.TitleStyle.Render("Topics"),
-		styles.SimpleTopicsStyle.Render(topicsTableBox),
+		topicsTableBox,
 		styles.TitleStyle.Render("Add Topics"),
 		topicInputBox,
 	)
 
-	// Create main content with fixed height to ensure bottom elements are pushed down
+	// Join left and right sides horizontally
 	mainContent := lipgloss.NewStyle().
 		Height(mainContentHeight).
 		Render(lipgloss.JoinHorizontal(lipgloss.Top, leftSide, rightSide))
@@ -91,10 +70,10 @@ func (m Model) View() string {
 		"Tab: cycle focus • Enter: select/search/add-topic • /: search • Ctrl+N: new note (table only) • Ctrl+S: save • Ctrl+Q: sync DB • Del: delete note/topic • Ctrl+C: quit",
 	)
 
-	// Render status bar without extra styling that might add space
+	// Render status bar
 	statusBarBox := m.statusBar.View()
 
-	// Join everything with the main content taking up all available space except for help and status
+	// Join everything vertically
 	return lipgloss.JoinVertical(lipgloss.Top,
 		mainContent,
 		help,

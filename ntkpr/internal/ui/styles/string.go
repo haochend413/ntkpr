@@ -8,21 +8,18 @@ import (
 var (
 	BaseStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("240"))
+			BorderForeground(lipgloss.Color("240")).
+			Padding(0, 1)
 
 	FocusedStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("123"))
+			BorderForeground(lipgloss.Color("123")).
+			Padding(0, 1)
 
 	TitleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("211")).
 			Bold(true).
 			Padding(0, 1)
-
-	SimpleTopicsStyle = lipgloss.NewStyle().
-				BorderStyle(lipgloss.HiddenBorder()).
-				Padding(0, 0).
-				Margin(0, 0)
 
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")).

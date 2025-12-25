@@ -89,50 +89,76 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 		m.statusBar.SetWidth(m.width)
 
-		// Calculate proportional widths
-		tableWidth := int(float64(m.width) * 0.4) // 45% of window width
-		editWidth := int(float64(m.width) * 0.59) // 45% of window width
+		borderOverhead := 8 // 4 chars per box (2 borders + 2 padding) * 2 boxes
+		availableWidth := m.width - borderOverhead
 
-		// Table columns with proportional widths
-		idWidth := max(4, int(float64(tableWidth)*0.02))      // 8% of table width
-		timeWidth := max(1, int(float64(tableWidth)*0.2))     // 25% of table width
-		contentWidth := max(1, int(float64(tableWidth)*0.43)) // 52% of table width
-		topicsWidth := max(1, int(float64(tableWidth)*0.15))  // 15% of table width
+		// Split: 40% for table (left), 60% for edit (right)
+		tableContentWidth := int(float64(availableWidth) * 0.4)
+		editContentWidth := availableWidth - tableContentWidth
+
+		// Table actual width includes its content
+		tableWidth := tableContentWidth
+		editWidth := editContentWidth
+
+		// Distribute column widths to use full available width
+		idWidth := max(4, int(float64(tableWidth)*0.08))
+		timeWidth := max(8, int(float64(tableWidth)*0.22))
+		flagWidth := max(4, int(float64(tableWidth)*0.10))
+		contentWidth := max(10, int(float64(tableWidth)*0.48))
+		topicsWidth := max(5, int(float64(tableWidth)*0.15))
 
 		columns := []table.Column{
 			{Title: "ID", Width: idWidth},
 			{Title: "Time", Width: timeWidth},
 			{Title: "Content", Width: contentWidth},
-			{Title: "Flags", Width: 6},
+			{Title: "Flags", Width: flagWidth},
 			{Title: "Topics", Width: topicsWidth},
 		}
 		m.table.SetColumns(columns)
 		m.table.SetWidth(tableWidth)
 
-		// Table height relative to window height
+		// Height calculations
+		// Total height budget: m.height
+		// Used by: main content + help (3 lines) + status bar (1 line)
+		// Help has Padding(1, 0, 0, 2) so it's 2 lines total
+		// Status bar is 1 line
+		// Total reserved for help + status = 3 lines
+		mainContentHeight := m.height - 3
+
+		// Table height depends on whether search is visible
+		var tableHeight int
 		if m.focus == FocusSearch {
-			m.table.SetHeight(max(5, int(float64(m.height)*0.7))) // 70% of height
+			// Search box takes ~3 lines (border + padding + input)
+			// Remaining space for table
+			tableHeight = max(5, mainContentHeight-6)
 		} else {
-			m.table.SetHeight(max(5, int(float64(m.height)*0.8))) // 80% of height
+			// Full height for table (minus some margin)
+			tableHeight = max(5, mainContentHeight-3)
 		}
+		m.table.SetHeight(tableHeight)
 
-		// Textarea dimensions relative to window size
+		// Textarea dimensions
+		// Textarea should fill most of the right side
 		m.textarea.SetWidth(editWidth)
-		m.textarea.SetHeight(max(5, int(float64(m.height)*0.4))) // 40% of height
+		// Reserve space for topics section below
+		textareaHeight := max(5, int(float64(mainContentHeight)*0.65))
+		m.textarea.SetHeight(textareaHeight)
 
-		// Search input width relative to table width
-		m.searchInput.Width = m.table.Width()
+		// Search input width matches table width
+		m.searchInput.Width = tableWidth
 
-		// Topic input width
+		// Topic input width matches edit width
 		m.topicInput.Width = editWidth
 
 		// Topics table columns and dimensions
 		topicColumns := []table.Column{
-			{Title: "Topic", Width: max(15, editWidth-4)},
+			{Title: "Topic", Width: max(10, editWidth-2)},
 		}
 		m.topicsTable.SetColumns(topicColumns)
 		m.topicsTable.SetWidth(editWidth)
-		m.topicsTable.SetHeight(max(3, int(float64(m.height)*0.15))) // 15% of height
+		// Topics table height: use remaining space
+		topicsTableHeight := max(3, int(float64(mainContentHeight)*0.12))
+		m.topicsTable.SetHeight(topicsTableHeight)
 
 	case tea.KeyMsg:
 		// Handle global keys first
