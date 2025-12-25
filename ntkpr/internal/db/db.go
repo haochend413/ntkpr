@@ -15,10 +15,6 @@ type DB struct {
 	Conn *gorm.DB
 }
 
-func dbPath() {
-
-}
-
 // NewDB initializes a new database connection and migrates schema
 func NewDB(path string) (*DB, error) {
 	// if not exist, create all dirs
@@ -30,6 +26,7 @@ func NewDB(path string) (*DB, error) {
 			fmt.Fprintf(os.Stderr, "Error creating database directory", err)
 			return nil, err
 		}
+
 	}
 
 	conn, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
