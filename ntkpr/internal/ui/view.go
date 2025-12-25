@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/charmbracelet/lipgloss"
+	"github.com/haochend413/ntkpr/internal/ui/styles"
 )
 
 // View renders the UI
@@ -25,7 +26,7 @@ func (m Model) View() string {
 		// Set the table height dynamically
 		m.table.SetHeight(tableHeight)
 
-		searchBox := focusedStyle.Render(m.searchInput.View())
+		searchBox := styles.FocusedStyle.Render(m.searchInput.View())
 		tableBox := m.renderTableBox()
 
 		// Join with bottom alignment to ensure content grows from top
@@ -43,26 +44,11 @@ func (m Model) View() string {
 		leftSide = tableBox
 	}
 
-	// var fullTopicTableBox string
-	// if m.focus == FocusFullTopic {
-	// 	m.fullTopicTable.SetStyles(focusedTableStyle)
-	// 	fullTopicTableBox = focusedStyle.Render(m.fullTopicTable.View())
-	// } else {
-	// 	m.fullTopicTable.SetStyles(baseTableStyle)
-	// 	fullTopicTableBox = baseStyle.Render(m.fullTopicTable.View())
-	// }
-
-	realLeft := lipgloss.JoinHorizontal(lipgloss.Left,
-
-		leftSide,
-		// fullTopicTableBox,
-	)
-
 	var editBox string
 	if m.focus == FocusEdit {
-		editBox = focusedStyle.Render(m.textarea.View())
+		editBox = styles.FocusedStyle.Render(m.textarea.View())
 	} else {
-		editBox = baseStyle.Render(m.textarea.View())
+		editBox = styles.BaseStyle.Render(m.textarea.View())
 	}
 
 	var topicsTableBox string
@@ -83,25 +69,25 @@ func (m Model) View() string {
 
 	var topicInputBox string
 	if m.focus == FocusTopics {
-		topicInputBox = focusedStyle.Render(m.topicInput.View())
+		topicInputBox = styles.FocusedStyle.Render(m.topicInput.View())
 	} else {
-		topicInputBox = baseStyle.Render(m.topicInput.View())
+		topicInputBox = styles.BaseStyle.Render(m.topicInput.View())
 	}
 
 	rightSide := lipgloss.JoinVertical(lipgloss.Left,
 		editBox,
-		titleStyle.Render("Topics"),
-		simpleTopicsStyle.Render(topicsTableBox),
-		titleStyle.Render("Add Topics"),
+		styles.TitleStyle.Render("Topics"),
+		styles.SimpleTopicsStyle.Render(topicsTableBox),
+		styles.TitleStyle.Render("Add Topics"),
 		topicInputBox,
 	)
 
 	// Create main content with fixed height to ensure bottom elements are pushed down
 	mainContent := lipgloss.NewStyle().
 		Height(mainContentHeight).
-		Render(lipgloss.JoinHorizontal(lipgloss.Top, realLeft, rightSide))
+		Render(lipgloss.JoinHorizontal(lipgloss.Top, leftSide, rightSide))
 
-	help := helpStyle.Render(
+	help := styles.HelpStyle.Render(
 		"Tab: cycle focus • Enter: select/search/add-topic • /: search • Ctrl+N: new note (table only) • Ctrl+S: save • Ctrl+Q: sync DB • Del: delete note/topic • Ctrl+C: quit",
 	)
 
@@ -118,10 +104,10 @@ func (m Model) View() string {
 
 func (m Model) renderTableBox() string {
 	if m.focus == FocusTable {
-		m.table.SetStyles(focusedTableStyle)
-		return focusedStyle.Render(m.table.View())
+		m.table.SetStyles(styles.FocusedTableStyle)
+		return styles.FocusedStyle.Render(m.table.View())
 	} else {
-		m.table.SetStyles(baseTableStyle)
-		return baseStyle.Render(m.table.View())
+		m.table.SetStyles(styles.BaseTableStyle)
+		return styles.BaseStyle.Render(m.table.View())
 	}
 }

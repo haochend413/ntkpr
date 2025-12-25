@@ -2,69 +2,40 @@ package app
 
 import (
 	"log"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/haochend413/ntkpr/internal/app/context"
+	editstack "github.com/haochend413/ntkpr/internal/app/editStack"
 	"github.com/haochend413/ntkpr/internal/db"
 	"github.com/haochend413/ntkpr/internal/models"
-	"github.com/haochend413/ntkpr/internal/types"
 )
 
 // App encapsulates application logic and state
 type App struct {
-	db *db.DB
-	// We need both map and array, controlling the resources as pointers.
-	// Notes contains everything, even the ones that are to be deleted: during sync, we first create them, and then delete them in order to keep the IDs going.
-	// When filtering this, we might need to combine the list of deletednoteid to make sure the correct notes are listed.
-
-	//////
-
-	// New atchitecture:
-	// We will keep different sorts of lists :
-	// 1. all ; 2. Recent ; 3. Days ; 4. Weeks ; 5. months ; ...
-	// Then we will keep a currentNote pointer of a list, switching between different lists;
-	// For search, we will have a individual list that fetches from the pointer and modifies it. Basically the content of the search list depends on others.
-	NotesMap            map[uint]*models.Note
-	NotesList           []*models.Note // For all;
-	FilteredNotesMap    map[uint]*models.Note
-	FilteredNotesList   []*models.Note  // For search;
-	RecentNotes         []*models.Note  // For Recent
-	CurrentNotesListPtr *[]*models.Note //It points to different stuff.
-	//Notes selected based on NoteSelector
-
-	// The current note that is selected, in order to change and demo;
-	currentNote *models.Note // ok, so how should I handle different pointers and arrays ?
-	// In order to manage pending notes, We record the changed note IDs, and we send them back to database;
-	PendingNoteIDs []uint // ok on create we
-	DeletedNoteIDs []uint //
-	CreateNoteIDs  []uint
-
-	// This should be one larger than the last note i have in my db;
+	db               *db.DB
+	NotesMap         map[uint]*models.Note
+	contextMgr       *context.ContextMgr
+	editMgr          *editstack.EditMgr
+	currentNote      *models.Note
 	nextNoteCreateID uint
 	Synced           bool
-	// Topics
-	Topics map[uint]*models.Topic
-	mutex  sync.Mutex
+	Topics           map[uint]*models.Topic
+	mutex            sync.Mutex
 }
 
 // NewApp creates a new application instance
 func NewApp(dbConn *db.DB) *App {
 	app := &App{
-		db:                dbConn,
-		NotesMap:          make(map[uint]*models.Note),
-		NotesList:         make([]*models.Note, 0),
-		FilteredNotesMap:  make(map[uint]*models.Note),
-		FilteredNotesList: make([]*models.Note, 0),
-		RecentNotes:       make([]*models.Note, 0),
-		Topics:            make(map[uint]*models.Topic),
-		nextNoteCreateID:  1, // Default starting ID if database is empty
-		PendingNoteIDs:    []uint{},
-		DeletedNoteIDs:    []uint{},
+		db:               dbConn,
+		NotesMap:         make(map[uint]*models.Note),
+		contextMgr:       context.NewContextMgr(),
+		editMgr:          editstack.NewEditMgr(),
+		Topics:           make(map[uint]*models.Topic),
+		nextNoteCreateID: 1, // Default starting ID if database is empty
+		Synced:           true,
 	}
 
-	//load everything into the app
 	app.loadData()
 	return app
 }
@@ -73,79 +44,46 @@ func NewApp(dbConn *db.DB) *App {
 // This function also load all topics
 func (a *App) loadData() {
 	//fetch data from database;
-	notes, topics, err := a.db.SyncData(make(map[uint]*models.Note), nil, nil, nil)
+	notes, topics, err := a.db.SyncData(make(map[uint]*models.Note), make(map[uint]*editstack.Edit))
 	if err != nil {
-		// Log error but continue with empty notes
 		log.Panic(err)
 	}
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	// fill in the variables
-	a.FilteredNotesList = notes
-	a.NotesList = notes
 	a.NotesMap = make(map[uint]*models.Note, len(notes))
 	a.Topics = make(map[uint]*models.Topic, len(topics))
-	a.FilteredNotesMap = make(map[uint]*models.Note, len(notes))
+
+	// Initialize context manager with all notes
+	a.contextMgr.RefreshDefaultContext(notes)
+
 	// init recent
-	recentNotes, _ := a.db.GetRecentNotes()
-	a.RecentNotes = recentNotes
+	a.contextMgr.RefreshRecentContext()
+
 	for _, note := range notes {
 		a.NotesMap[note.ID] = note
-		a.FilteredNotesMap[note.ID] = note
 	}
 	for _, topic := range topics {
 		a.Topics[topic.ID] = topic
 	}
 
-	//init current Pointer ;
-	a.CurrentNotesListPtr = &a.FilteredNotesList
 	// Query the database for the maximum ID, including deleted notes
-	var maxID uint
-	if err := a.db.Conn.Table("notes").Select("MAX(id)").Row().Scan(&maxID); err != nil {
-		maxID = 0
-	}
+	// var maxID uint
+	// if err := a.db.Conn.Table("notes").Select("MAX(id)").Row().Scan(&maxID); err != nil {
+	// 	maxID = 0
+	// }
 
 	// Set the next ID for note creation
-	a.nextNoteCreateID = maxID + 1
+	a.nextNoteCreateID = a.db.GetCreateNoteID()
 }
 
-// This should search based on the input string, and populate the filtered list;
-// The mechanism is :
-// there will always be a filtered list out there, and search will switch the table content from the content of currentList to
-// the filtered list.
-// If not, we should populate using the NotesMap instead.
-// We do not actually need the map ? maybe ? we can try it.
-
-// This function now searches the ciurrentList and filter it to populate FilteredNotesMap and List.
+// SearchNotes searches the current list and populates search context
 func (a *App) SearchNotes(query string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	curr := *a.CurrentNotesListPtr
-	if query == "" {
-		// a.FilteredNotesMap = a.NotesMap
-		a.FilteredNotesList = curr
-		return
-	}
-	query = strings.ToLower(query)
-	a.FilteredNotesMap = make(map[uint]*models.Note)
-	a.FilteredNotesList = make([]*models.Note, 0)
-	for _, note := range curr {
-		if strings.Contains(strings.ToLower(note.Content), query) {
-			a.FilteredNotesMap[note.ID] = note
-			a.FilteredNotesList = append(a.FilteredNotesList, note)
-			continue
-		}
-		for _, topic := range note.Topics {
-			if strings.Contains(strings.ToLower(topic.Topic), query) {
-				a.FilteredNotesMap[note.ID] = note
-				a.FilteredNotesList = append(a.FilteredNotesList, note)
-				break
-			}
-		}
-	}
-	sort.Slice(a.FilteredNotesList, func(i, j int) bool {
-		return a.FilteredNotesList[i].ID < a.FilteredNotesList[j].ID
-	})
+
+	a.contextMgr.RefreshSearchContext(query)
+	a.contextMgr.SwitchContext(context.Search)
 }
 
 // SelectCurrentNote sets the current note based on table cursor
@@ -155,11 +93,13 @@ func (a *App) SelectCurrentNote(cursor int) {
 	defer a.mutex.Unlock()
 
 	//This might be wrong: 1. needs sort;
-	if len(*a.CurrentNotesListPtr) == 0 || cursor >= len(*a.CurrentNotesListPtr) {
+	notes := a.contextMgr.GetCurrentNotes()
+	if len(notes) == 0 || cursor >= len(notes) {
 		a.currentNote = nil
 		return
 	}
-	a.currentNote = (*a.CurrentNotesListPtr)[cursor]
+	a.currentNote = notes[cursor]
+	a.contextMgr.SetCurrentCursor(uint(cursor))
 }
 
 // CreateNewNote creates a new pending note
@@ -172,78 +112,104 @@ func (a *App) CreateNewNote() {
 	note.ID = a.nextNoteCreateID
 	a.nextNoteCreateID += 1
 	a.Synced = false
-	a.CreateNoteIDs = append(a.CreateNoteIDs, note.ID)
-	// // a.FilteredNotesMap[note.ID] = note
+	if err := a.editMgr.AddEdit(editstack.Create, note.ID); err != nil {
+		log.Printf("Error adding Create edit: %v", err)
+		return
+	}
 	a.NotesMap[note.ID] = note
-	// // a.FilteredNotesList = append(a.FilteredNotesList, note)
-	a.NotesList = append(a.NotesList, note)
-	*a.CurrentNotesListPtr = append(*a.CurrentNotesListPtr, note)
+	a.contextMgr.AddNoteToDefault(note)
 	a.currentNote = note
-
 }
 
 func (a *App) UpdateRecentNotes() {
-	d, _ := a.db.GetRecentNotes()
-	//lock
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	// Sort by ID to match display order
-	sort.Slice(d, func(i, j int) bool {
-		return d[i].ID < d[j].ID
-	})
-	a.RecentNotes = d
+
+	a.contextMgr.RefreshRecentContext()
 }
 
-func (a *App) UpdateCurrentList(s types.Selector) {
-	switch s {
-	case types.Default:
-		a.CurrentNotesListPtr = &a.NotesList
-	case types.Search:
-		// this should do nothing, since filtered notes list is independent of current notes list;
-		// see more to this
-		// but if that's the case, then many things have to be changed.
-	case types.Recent:
-		a.CurrentNotesListPtr = &a.RecentNotes
-	}
-	sort.Slice(*a.CurrentNotesListPtr, func(i, j int) bool {
-		return (*a.CurrentNotesListPtr)[i].ID < (*a.CurrentNotesListPtr)[j].ID
-	})
+func (a *App) UpdateCurrentList(c context.ContextPtr) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	a.contextMgr.SwitchContext(c)
+	a.contextMgr.SortCurrentContext()
 }
 
-// SyncWithDatabase syncs in-memory changes to the database
-// This only work before we sync everything.
+// GetCurrentNotes returns the notes in the current context
+func (a *App) GetCurrentNotes() []*models.Note {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.contextMgr.GetCurrentNotes()
+}
 
-// This is very buggy.
+// GetCurrentContext returns the current context
+func (a *App) GetCurrentContext() context.ContextPtr {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.contextMgr.GetCurrentContext()
+}
+
+// GetEditStack returns the edit stack for UI access
+func (a *App) GetEditStack() []uint {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.editMgr.EditStack
+}
+
+// GetEdit returns an edit by ID
+func (a *App) GetEdit(id uint) *editstack.Edit {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.editMgr.EditMap[id]
+}
+
+// UndoDelete undoes the last delete operation
 func (a *App) UndoDelete() {
-	if len(a.DeletedNoteIDs) == 0 {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	// Find the most recent delete from the edit stack
+	var lastDeletedID uint
+	for i := len(a.editMgr.EditStack) - 1; i >= 0; i-- {
+		id := a.editMgr.EditStack[i]
+		if edit, exists := a.editMgr.EditMap[id]; exists && edit.EditType == editstack.Delete {
+			lastDeletedID = id
+			break
+		}
+	}
+
+	if lastDeletedID == 0 {
 		return
 	}
-	lastDeletedID := a.DeletedNoteIDs[len(a.DeletedNoteIDs)-1]
+
 	deletedNote, exists := a.NotesMap[lastDeletedID]
 	if !exists {
 		return
 	}
-	a.DeletedNoteIDs = a.DeletedNoteIDs[:len(a.DeletedNoteIDs)-1]
-	a.NotesList = append(a.NotesList, deletedNote)
-	if len(a.RecentNotes) < 10 {
-		a.RecentNotes = append(a.RecentNotes, deletedNote)
-	}
+
+	// Remove the delete edit
+	a.editMgr.RemoveEdit(lastDeletedID)
+
+	// Add back to default context
+	a.contextMgr.AddNoteToDefault(deletedNote)
+	a.Synced = false
 }
 
 func (a *App) SyncWithDatabase() {
 	a.mutex.Lock()
-	// Make a copy of the IDs slices for the database operation
-	pendingIDs := append([]uint{}, a.PendingNoteIDs...)
-	deletedIDs := append([]uint{}, a.DeletedNoteIDs...)
-	createIDs := append([]uint{}, a.CreateNoteIDs...)
-	// Make a copy of the notes map
+	// Make a copy of the notes map and editMap
 	notesMapCopy := make(map[uint]*models.Note, len(a.NotesMap))
 	for id, note := range a.NotesMap {
 		notesMapCopy[id] = note
 	}
+	editMapCopy := make(map[uint]*editstack.Edit, len(a.editMgr.EditMap))
+	for id, edit := range a.editMgr.EditMap {
+		editMapCopy[id] = edit
+	}
 	a.mutex.Unlock()
-	// Sync with the database
-	updatedNotes, updatedTopics, err := a.db.SyncData(notesMapCopy, pendingIDs, deletedIDs, createIDs)
+	// Sync with the database using the editMap directly
+	updatedNotes, updatedTopics, err := a.db.SyncData(notesMapCopy, editMapCopy)
 	if err != nil {
 		log.Printf("Error syncing with database: %v", err)
 		return
@@ -253,19 +219,14 @@ func (a *App) SyncWithDatabase() {
 	defer a.mutex.Unlock()
 
 	// Update in-memory state with the fresh data from database
-	a.NotesList = updatedNotes
+	a.contextMgr.RefreshDefaultContext(updatedNotes)
 	a.NotesMap = make(map[uint]*models.Note, len(updatedNotes))
 	a.Topics = make(map[uint]*models.Topic, len(updatedTopics))
-
-	// // Reset the filtered lists/maps to show all notes
-	// a.FilteredNotesList = updatedNotes
-	// a.FilteredNotesMap = make(map[uint]*models.Note, len(updatedNotes))
 
 	// Find max ID for next note creation
 	maxID := uint(0)
 	for _, note := range updatedNotes {
 		a.NotesMap[note.ID] = note
-		// a.FilteredNotesMap[note.ID] = note
 		if note.ID > maxID {
 			maxID = note.ID
 		}
@@ -276,11 +237,9 @@ func (a *App) SyncWithDatabase() {
 		a.Topics[topic.ID] = topic
 	}
 
-	// Set next ID and clear pending/deleted lists
+	// Set next ID and clear edit manager
 	a.nextNoteCreateID = maxID + 1
-	a.PendingNoteIDs = []uint{}
-	a.DeletedNoteIDs = []uint{}
-	a.CreateNoteIDs = []uint{}
+	a.editMgr.Clear()
 	a.Synced = true
 
 	// If we had a current note, try to find it in the updated notes
@@ -288,11 +247,9 @@ func (a *App) SyncWithDatabase() {
 		currentID := a.currentNote.ID
 		if note, exists := a.NotesMap[currentID]; exists {
 			a.currentNote = note
-		} else if len(a.NotesList) > 0 {
-			// If current note was deleted, select the first note
-			a.currentNote = a.NotesList[0]
 		} else {
-			a.currentNote = nil
+			// If current note was deleted, select the first note or nil
+			a.currentNote = a.contextMgr.GetCurrentNote()
 		}
 	}
 }

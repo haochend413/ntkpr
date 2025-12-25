@@ -1,14 +1,13 @@
 package app
 
 import (
-	"slices"
+	"log"
 	"strings"
 	"time"
 
+	editstack "github.com/haochend413/ntkpr/internal/app/editStack"
 	"github.com/haochend413/ntkpr/internal/models"
 )
-
-//is the mutex really required ? Well, maybe making current note public is a good idea, this is just stupid.
 
 // CurrentNoteContent returns the content of the current note
 func (a *App) CurrentNoteContent() string {
@@ -30,7 +29,7 @@ func (a *App) CurrentNoteTopics() []*models.Topic {
 	return a.currentNote.Topics
 }
 
-// CurrentNoteTopics returns the topics of the current note
+// CurrentNoteID returns the ID of the current note or -1
 func (a *App) CurrentNoteID() int {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -65,35 +64,54 @@ func (a *App) HasCurrentNote() bool {
 	return a.currentNote != nil
 }
 
-// Update the content of current note, content fetched from terminal
+// SaveCurrentNote updates the current note content and marks it pending
 func (a *App) SaveCurrentNote(content string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	if a.currentNote == nil {
 		return
 	}
-	var noteID uint
-	if a.currentNote.ID != 0 {
-		noteID = a.currentNote.ID
+	if a.currentNote.Content == content {
+		return
 	}
-	if a.currentNote.Content != content {
-		a.currentNote.Content = content
-		a.currentNote.Frequency += 1
-		a.Synced = false
-		a.PendingNoteIDs = append(a.PendingNoteIDs, noteID)
+	a.currentNote.Content = content
+	a.currentNote.Frequency += 1
+	a.currentNote.UpdatedAt = time.Now()
+	a.Synced = false
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
+		log.Printf("Error adding Update edit: %v", err)
 	}
-
 }
 
-func (a *App) HighlightCurrentNote() {
+func (a *App) ToggleCurrentNoteHighlight() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.HasCurrentNote() {
-		a.currentNote.Highlight = !a.currentNote.Highlight
+	if a.currentNote == nil {
+		return
+	}
+	a.currentNote.Highlight = !a.currentNote.Highlight
+	a.currentNote.UpdatedAt = time.Now() // I think this is kinda required since we are not always syncing with DB. Maybe do a db state simulation.
+	a.Synced = false
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil { // note-wise : append to editMgr
+		log.Printf("Error adding Update edit: %v", err)
 	}
 }
 
-// AddTopicsToCurrentNote adds topics to the current note
+func (a *App) ToggleCurrentNotePrivate() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	if a.currentNote == nil {
+		return
+	}
+	a.currentNote.Private = !a.currentNote.Private
+	a.currentNote.UpdatedAt = time.Now() // I think this is kinda required since we are not always syncing with DB. Maybe do a db state simulation.
+	a.Synced = false
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil { // note-wise : append to editMgr
+		log.Printf("Error adding Update edit: %v", err)
+	}
+}
+
+// AddTopicsToCurrentNote parses a comma-separated list and appends unique topics
 func (a *App) AddTopicsToCurrentNote(topicsText string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -105,6 +123,7 @@ func (a *App) AddTopicsToCurrentNote(topicsText string) {
 	if topicsText == "" {
 		return
 	}
+	changed := false
 	topicNames := strings.Split(topicsText, ",")
 	for _, topicName := range topicNames {
 		topicName = strings.TrimSpace(topicName)
@@ -122,15 +141,16 @@ func (a *App) AddTopicsToCurrentNote(topicsText string) {
 
 		if !exists {
 			a.currentNote.Topics = append(a.currentNote.Topics, topic)
+			changed = true
 		}
-
 	}
-	//mark as pending
-	a.Synced = false
-
-	a.PendingNoteIDs = append(a.PendingNoteIDs, a.currentNote.ID)
-	// a.notes[noteID] = *a.currentNote
-	// a.FilteredNotes[noteID] = *a.currentNote
+	if changed {
+		a.currentNote.UpdatedAt = time.Now()
+		a.Synced = false
+		if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
+			log.Printf("Error adding Update edit: %v", err)
+		}
+	}
 }
 
 // RemoveTopicFromCurrentNote removes a topic from the current note
@@ -140,10 +160,6 @@ func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
 	if a.currentNote == nil {
 		return
 	}
-	var noteID uint
-	if a.currentNote.ID != 0 {
-		noteID = a.currentNote.ID
-	}
 
 	var newTopics []*models.Topic
 	for _, topic := range a.currentNote.Topics {
@@ -151,62 +167,55 @@ func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
 			newTopics = append(newTopics, topic)
 		}
 	}
+	if len(newTopics) == len(a.currentNote.Topics) {
+		return
+	}
 	a.currentNote.Topics = newTopics
+	a.currentNote.UpdatedAt = time.Now()
 	a.Synced = false
-
-	a.PendingNoteIDs = append(a.PendingNoteIDs, noteID)
+	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
+		log.Printf("Error adding Update edit: %v", err)
+	}
 }
 
-// DeleteCurrentNote deletes the current note in-memory
+// DeleteCurrentNote deletes the current note from the active list and marks for deletion if needed
 func (a *App) DeleteCurrentNote(cursor uint) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	// Check if there's a current note
 	if a.currentNote == nil {
 		return
 	}
 
-	// Get the note ID
 	noteID := a.currentNote.ID
 
-	// Handle differently based on note status
-	isInCreateList := slices.Contains(a.CreateNoteIDs, noteID)
-
-	if isInCreateList {
-		for i, id := range a.CreateNoteIDs {
-			if id == noteID {
-				a.CreateNoteIDs = append(a.CreateNoteIDs[:i], a.CreateNoteIDs[i+1:]...)
-				//Remove it from the FilteredNotesList and Notes List
-				break
-			}
-		}
+	// Check if this note is in the Create list (newly created, not yet synced)
+	if edit, exists := a.editMgr.EditMap[noteID]; exists && edit.EditType == editstack.Create {
+		// Note was created but not synced - just remove it entirely
+		a.editMgr.RemoveEdit(noteID)
+		delete(a.NotesMap, noteID)
 	} else if noteID != 0 {
-		a.DeletedNoteIDs = append(a.DeletedNoteIDs, noteID)
-		// Also remove from pending if it was pending
-		// for i, id := range a.PendingNoteIDs {
-		// 	if id == noteID {
-		// 		a.PendingNoteIDs = append(a.PendingNoteIDs[:i], a.PendingNoteIDs[i+1:]...)
-		// 		break
-		// 	}
-		// }
-	}
-
-	// so....it is still in notesMap;
-
-	// delete(*a.CurrentNotesListPtr, noteID)
-	for i, note := range *a.CurrentNotesListPtr {
-		if note.ID == noteID {
-			*a.CurrentNotesListPtr = append((*a.CurrentNotesListPtr)[:i], (*a.CurrentNotesListPtr)[i+1:]...)
-			break
+		// Note exists in DB - mark for deletion
+		if err := a.editMgr.AddEdit(editstack.Delete, noteID); err != nil {
+			log.Printf("Error adding Delete edit: %v", err)
+			return
 		}
 	}
+
+	// Remove from default context (and it will be reflected in other contexts)
+	a.contextMgr.RemoveNoteFromDefault(noteID)
 	a.Synced = false
 
-	// Clear the current note reference
-	// This might need debugging and border conditions management;
-	if cursor >= uint(len(*a.CurrentNotesListPtr)) {
-		cursor = uint(len(*a.CurrentNotesListPtr) - 1)
+	// adjust cursor
+	notes := a.contextMgr.GetCurrentNotes()
+	if len(notes) == 0 {
+		a.currentNote = nil
+		return
 	}
-	a.currentNote = (*a.CurrentNotesListPtr)[cursor]
+
+	if int(cursor) >= len(notes) {
+		cursor = uint(len(notes) - 1)
+	}
+	a.currentNote = notes[cursor]
+	a.contextMgr.SetCurrentCursor(cursor)
 }

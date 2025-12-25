@@ -6,7 +6,8 @@ import "gorm.io/gorm"
 type Note struct {
 	gorm.Model
 	Content   string
-	Highlight bool
-	Frequency int      //should be calculated as the number of times that is editted.
+	Highlight bool     `gorm:"default:false"`
+	Private   bool     `gorm:"default:false"`
+	Frequency int      // calculated as the number of times that is edited
 	Topics    []*Topic `gorm:"many2many:note_topics;constraint:OnDelete:CASCADE;"`
 }

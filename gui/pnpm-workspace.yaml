@@ -1,0 +1,7 @@
+packages:
+  - .
+ignoredBuiltDependencies:
+  - better-sqlite3
+  - sharp
+  - sqlite3
+  - unrs-resolver

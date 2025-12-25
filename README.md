@@ -1,4 +1,6 @@
 # NoteKeeper
+
+## Introduction
 Workflow tool
 
 Techs: 
@@ -10,4 +12,18 @@ Techs:
 
 Previous Version: 
 - v1: based on gocui 
+
+## Intallation Guide 
+
+Clone these repos:
+
+[AI-Note_Keeper](https://github.com/haochend413/AI-Note-Keeper.git)
+
+[bubbles](https://github.com/haochend413/bubbles.git)
+
+inside ntkpr/internel/cmd/note : 
+
+go build -o c
+
+run the compiled file to start the program. 
 

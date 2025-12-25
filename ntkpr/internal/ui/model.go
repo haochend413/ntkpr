@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,9 +13,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/haochend413/ntkpr/config"
 	"github.com/haochend413/ntkpr/internal/app"
+	"github.com/haochend413/ntkpr/internal/app/context"
 	"github.com/haochend413/ntkpr/internal/models"
-	"github.com/haochend413/ntkpr/internal/types"
+	"github.com/haochend413/ntkpr/state"
 )
 
 // FocusState represents the current UI focus
@@ -28,15 +29,14 @@ const (
 	FocusEdit
 	FocusSearch
 	FocusTopics
-	FocusFullTopic
 )
 
 // Model represents the Bubble Tea model
 type Model struct {
 	app            *app.App
-	NoteSelector   types.Selector
+	Config         *config.Config
+	CurrentContext context.ContextPtr
 	table          table.Model
-	fullTopicTable table.Model
 	topicsTable    table.Model
 	textarea       textarea.Model
 	searchInput    textinput.Model
@@ -49,13 +49,24 @@ type Model struct {
 }
 
 // NewModel initializes a new UI model
-func NewModel(application *app.App) Model {
+func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
+	// Use default state if nil
+	if s == nil {
+		s = state.DefaultState()
+	}
+	if cfg == nil {
+		temp := config.LoadOrCreateConfig()
+		cfg = &temp
+	}
+
 	columns := []table.Column{
 		{Title: "ID", Width: 4},
 		{Title: "Time", Width: 16},
 		{Title: "Content", Width: 40},
+		{Title: "Flags", Width: 6},
 		{Title: "Topics", Width: 20},
 	}
+
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithFocused(true),
@@ -132,94 +143,55 @@ func NewModel(application *app.App) Model {
 	ti.CharLimit = 100
 	ti.Width = 50
 
-	fullTopicColumns := []table.Column{
-		{Title: "ID", Width: 5},
-		{Title: "Topic", Width: 10},
-	}
-
-	ftt := table.New(
-
-		table.WithColumns(fullTopicColumns),
-		table.WithFocused(true),
-		table.WithHeight(15),
-	)
-
 	topicInput := textinput.New()
 	topicInput.Placeholder = "Add topic (comma-separated)..."
 	topicInput.CharLimit = 200
 	topicInput.Width = 50
 
 	m := Model{
-		app:            application,
-		table:          t,
-		topicsTable:    tt,
-		textarea:       ta,
-		searchInput:    ti,
-		fullTopicTable: ftt,
-		statusBar:      sb,
-		topicInput:     topicInput,
-		focus:          FocusTable,
+		app:         application,
+		Config:      cfg,
+		table:       t,
+		topicsTable: tt,
+		textarea:    ta,
+		searchInput: ti,
+		statusBar:   sb,
+		topicInput:  topicInput,
+		focus:       FocusTable,
 	}
-	m.updateTable(types.Default)
+
+	//set states
+	m.DistributeState(s)
 	m.updateTopicsTable()
-	// print(len(m.app.Topics))
-	m.updateFullTopicTable()
+	m.updateStatusBar()
+
 	return m
 }
 
 // Init initializes the Bubble Tea model
 func (m Model) Init() tea.Cmd {
-	return textinput.Blink
+	// Blink ?
+	cmds := []tea.Cmd{}
+	cmds = append(cmds, textinput.Blink)
+	return tea.Batch(cmds...)
 }
 
-func (m *Model) updateFullTopicTable() {
-	topics := make([]models.Topic, 0, len(m.app.Topics))
-	// print(len(m.app.Topics))
-	for _, t := range m.app.Topics {
-		topics = append(topics, *t)
-	}
-	sort.Slice(topics, func(i, j int) bool {
-		return topics[i].ID < topics[j].ID // Sort by ID (ascending)
-		// Or sort alphabetically:
-		// return topics[i].Topic < topics[j].Topic
-	})
-	rows := make([]table.Row, len(topics))
-	for i, t := range topics {
-		topicsStr := t.Topic
-		if len(topicsStr) > 18 {
-			topicsStr = topicsStr[:15] + "..."
-		}
-		idStr := fmt.Sprintf("%d", t.ID)
-		rows[i] = table.Row{
-			idStr,
-			topicsStr,
-		}
-	}
-	m.fullTopicTable.SetRows(rows)
-	// print("aaaaa")
-}
-
-// updateTable updates the table rows based on the types.Selector; it also updates the types.Selector of the app;
-func (m *Model) updateTable(s types.Selector) {
-	m.NoteSelector = s
+// This is rather unecessary. We need more efficient ways. Easy actually : passing in more signals.
+// updateTable updates the table rows based on the context.ContextPtr; it also updates the context.ContextPtr of the app;
+func (m *Model) updateTable(c context.ContextPtr) {
+	m.CurrentContext = c
+	m.app.UpdateCurrentList(c) // Switch the app's context to match
 	// This needs to be reflected to the terminal. Maybe a new architecture will do. Like a pointer to the list.
 	// We need to find a new way to deal with search.
 	var selectedNotes []*models.Note
-	switch s {
-	case types.Search:
-		selectedNotes = m.app.FilteredNotesList
-	default:
-		selectedNotes = *m.app.CurrentNotesListPtr
-	}
-	notes := make([]models.Note, 0, len(selectedNotes))
-	for _, note := range selectedNotes {
-		notes = append(notes, *note)
-	}
+
+	selectedNotes = m.app.GetCurrentNotes()
+
 	// sort.Slice(notes, func(i, j int) bool {
 	// 	return notes[i].ID < notes[j].ID
 	// })
-	rows := make([]table.Row, len(notes))
-	for i, note := range notes {
+	rows := make([]table.Row, len(selectedNotes))
+	for i, note := range selectedNotes {
 		topics := make([]string, len(note.Topics))
 		for j, topic := range note.Topics {
 			topics[j] = topic.Topic
@@ -238,10 +210,20 @@ func (m *Model) updateTable(s types.Selector) {
 			idStr = "P" // Indicate pending
 			timeStr = time.Now().Format("06-01-02 15:04")
 		}
+
+		flagStrRaw := ""
+		if note.Highlight {
+			flagStrRaw += "H"
+		}
+		if note.Private {
+			flagStrRaw += "P"
+		}
+
 		rows[i] = table.Row{
 			idStr,
 			timeStr,
 			content,
+			flagStrRaw,
 			topicsStr,
 		}
 	}
@@ -274,8 +256,19 @@ func (m *Model) printSync(sync bool) string {
 	}
 }
 
-func (m *Model) updateStatus() {
-	m.statusBar.GetTag("filter").SetValue(string(m.NoteSelector))
+func (m *Model) updateStatusBar() {
+	// Convert context.ContextPtr to string
+	contextName := "Default"
+	switch m.CurrentContext {
+	case context.Default:
+		contextName = "Default"
+	case context.Recent:
+		contextName = "Recent"
+	case context.Search:
+		contextName = "Search"
+	}
+
+	m.statusBar.GetTag("filter").SetValue(contextName)
 	m.statusBar.GetTag("NoteID").SetValue(strconv.Itoa(m.app.CurrentNoteID()))
 	m.statusBar.GetTag("LastUpdated").SetValue(m.app.CurrentNoteLastUpdate().Format("01-02 15:04"))
 	m.statusBar.GetTag("Version").SetValue(strconv.Itoa(m.app.CurrentNoteFrequency()))
