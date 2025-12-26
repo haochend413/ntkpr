@@ -115,6 +115,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	sb.SetTag(sb.GetRight(2), "Time")
 
 	// You can also chain model methods
+	// Why
 	sb.SetWidth(100).SetHeight(1)
 
 	ta := textarea.New()

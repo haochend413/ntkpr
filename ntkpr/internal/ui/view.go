@@ -21,7 +21,8 @@ func (m Model) View() string {
 		searchBox := styles.FocusedStyle.Render(m.searchInput.View())
 		tableBox := m.renderTableBox()
 
-		leftSide = lipgloss.JoinVertical(lipgloss.Top,
+		// Use Bottom alignment so table bottom stays fixed and search appears above
+		leftSide = lipgloss.JoinVertical(0,
 			searchBox,
 			tableBox,
 		)

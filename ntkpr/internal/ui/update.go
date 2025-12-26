@@ -86,7 +86,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.ready = true
+		m.ready = true // I forgot what this is for.
 		m.statusBar.SetWidth(m.width)
 
 		borderOverhead := 8 // 4 chars per box (2 borders + 2 padding) * 2 boxes
@@ -145,7 +145,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textarea.SetHeight(textareaHeight)
 
 		// Search input width matches table width
-		m.searchInput.Width = tableWidth
+		m.searchInput.Width = tableWidth - 3 // This magically fits.
 
 		// Topic input width matches edit width
 		m.topicInput.Width = editWidth
@@ -174,6 +174,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case FocusSearch:
 				m.focus = FocusTable
 				m.searchInput.SetValue("")
+				// Restore full table height
+				mainContentHeight := m.height - 3
+				m.table.SetHeight(max(5, mainContentHeight-3))
 				m.table.Focus()
 				m.searchInput.Blur()
 				m.topicInput.Blur()
@@ -344,6 +347,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focus = FocusSearch
 				m.searchInput.Focus()
 				m.table.Blur()
+				// Shrink table to make room for search bar
+				mainContentHeight := m.height - 3
+				m.table.SetHeight(max(5, mainContentHeight-6))
 				return m, nil
 
 			case key.Matches(msg, tableKeys.SwitchCtxRecent):
