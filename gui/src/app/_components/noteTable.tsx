@@ -108,7 +108,8 @@ export default function NoteTable() {
             </tr>
           </thead>
           <tbody id="rows">
-            {notes.map((note) => (
+            {notes.filter((note) => !note.Private).map((note) => (
+
               <tr key={note.ID}>
                 <td>{note.ID}</td>
                 <td>{note.Content.substring(0, 50)}{note.Content.length > 50 ? '...' : ''}</td>
@@ -116,6 +117,7 @@ export default function NoteTable() {
                 <td>{new Date(note.UpdatedAt).toLocaleString('en-US', { hour12: false })}</td>
                 <td>{note.Frequency}</td>
                 <td>{note.Highlight ? 'H' : ''}</td>
+                <td>{note.Private ? 'P' : ''}</td>
               </tr>
             ))}
           </tbody>
