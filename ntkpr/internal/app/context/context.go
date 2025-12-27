@@ -202,3 +202,18 @@ func (cm *ContextMgr) SortCurrentContext() {
 		})
 	}
 }
+
+// only for data storage purposes. Do not use in coding.
+func (cm *ContextMgr) GetCursors() map[ContextPtr]uint {
+	return map[ContextPtr]uint{
+		Default: cm.Contexts[Default].Cursor,
+		Recent:  cm.Contexts[Recent].Cursor,
+		Search:  cm.Contexts[Search].Cursor,
+	}
+}
+
+func (cm *ContextMgr) SetCursors(m map[ContextPtr]uint) {
+	cm.Contexts[Default].Cursor = m[Default]
+	cm.Contexts[Recent].Cursor = m[Recent]
+	cm.Contexts[Search].Cursor = m[Search]
+}

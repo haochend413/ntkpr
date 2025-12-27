@@ -13,14 +13,19 @@ import (
 
 type State struct {
 	LastContext context.ContextPtr `json:"lastContext"` // previous context
-	LastCursor  int                `json:"lastCursor"`  // previous current note
+	// LastCursor  int                `json:"lastCursor"`  // previous current note
+	Cursors map[context.ContextPtr](uint) `json:"Cursors"`
 }
 
 // use a function to return different instances. Trick.
 func DefaultState() *State {
 	return &State{
 		LastContext: context.Default,
-		LastCursor:  0,
+		Cursors: map[context.ContextPtr](uint){
+			context.Default: 0,
+			context.Recent:  0,
+			context.Search:  0,
+		},
 	}
 }
 

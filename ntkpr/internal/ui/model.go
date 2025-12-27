@@ -180,7 +180,9 @@ func (m Model) Init() tea.Cmd {
 // updateTable updates the table rows based on the context.ContextPtr; it also updates the context.ContextPtr of the app;
 func (m *Model) updateTable(c context.ContextPtr) {
 	m.CurrentContext = c
-	m.app.UpdateCurrentList(c) // Switch the app's context to match
+	// Here，although cursor is on model level, we need to pass it done to app (context) level to store it.
+
+	m.app.UpdateCurrentList(c, uint(m.table.Cursor())) // Switch the app's context to match
 	// This needs to be reflected to the terminal. Maybe a new architecture will do. Like a pointer to the list.
 	// We need to find a new way to deal with search.
 	var selectedNotes []*models.Note

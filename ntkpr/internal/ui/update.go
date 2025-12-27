@@ -300,7 +300,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				m.app.UndoDelete()
-				m.app.UpdateCurrentList(m.CurrentContext)
+				new_cursor := m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
+				m.table.SetCursor(int(new_cursor))
 				m.updateTable(m.CurrentContext)
 
 				// Find the position of the restored note
@@ -343,7 +344,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case key.Matches(msg, tableKeys.SwitchCtxSearch):
 				m.CurrentContext = context.Search
-				m.app.UpdateCurrentList(m.CurrentContext)
+				new_cursor := m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
+				m.table.SetCursor(int(new_cursor))
 				m.focus = FocusSearch
 				m.searchInput.Focus()
 				m.table.Blur()
@@ -354,11 +356,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case key.Matches(msg, tableKeys.SwitchCtxRecent):
 				m.CurrentContext = context.Recent
-				m.app.UpdateCurrentList(m.CurrentContext)
+				new_cursor := m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
 				m.updateTable(context.Recent)
 				if len(m.app.GetCurrentNotes()) > 0 {
-					m.table.SetCursor(0)
-					m.app.SelectCurrentNote(0)
+					// Use saved cursor position for this context
+					if int(new_cursor) >= len(m.app.GetCurrentNotes()) {
+						new_cursor = uint(len(m.app.GetCurrentNotes()) - 1)
+					}
+					m.table.SetCursor(int(new_cursor))
+					m.app.SelectCurrentNote(int(new_cursor))
 					m.textarea.SetValue(m.app.CurrentNoteContent())
 					m.updateTopicsTable()
 				}
@@ -366,11 +372,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case key.Matches(msg, tableKeys.SwitchCtxDefault):
 				m.CurrentContext = context.Default
-				m.app.UpdateCurrentList(m.CurrentContext)
+				new_cursor := m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
 				m.updateTable(context.Default)
 				if len(m.app.GetCurrentNotes()) > 0 {
-					m.table.SetCursor(0)
-					m.app.SelectCurrentNote(0)
+					// Use saved cursor position for this context
+					if int(new_cursor) >= len(m.app.GetCurrentNotes()) {
+						new_cursor = uint(len(m.app.GetCurrentNotes()) - 1)
+					}
+					m.table.SetCursor(int(new_cursor))
+					m.app.SelectCurrentNote(int(new_cursor))
 					m.textarea.SetValue(m.app.CurrentNoteContent())
 					m.updateTopicsTable()
 				}

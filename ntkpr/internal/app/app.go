@@ -128,12 +128,16 @@ func (a *App) UpdateRecentNotes() {
 	a.contextMgr.RefreshRecentContext()
 }
 
-func (a *App) UpdateCurrentList(c context.ContextPtr) {
+// update notes and cursor
+func (a *App) UpdateCurrentList(c context.ContextPtr, currentCursor uint) uint {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-
+	c0 := a.contextMgr.GetCurrentContext()
+	a.contextMgr.Contexts[c0].Cursor = currentCursor
 	a.contextMgr.SwitchContext(c)
 	a.contextMgr.SortCurrentContext()
+	return a.contextMgr.Contexts[c].Cursor
+
 }
 
 // GetCurrentNotes returns the notes in the current context
@@ -194,6 +198,14 @@ func (a *App) UndoDelete() {
 	// Add back to default context
 	a.contextMgr.AddNoteToDefault(deletedNote)
 	a.Synced = false
+}
+
+// only for data storage purposes. Do not use in coding.
+func (a *App) GetCursors() map[context.ContextPtr]uint {
+	return a.contextMgr.GetCursors()
+}
+func (a *App) SetCursors(m map[context.ContextPtr]uint) {
+	a.contextMgr.SetCursors(m)
 }
 
 func (a *App) SyncWithDatabase() {
