@@ -95,7 +95,7 @@ env/
 *.sublime-workspace
 
 # Go related
-/bin/
+ntkpr/bin/
 /pkg/
 *.exe
 *.exe~
