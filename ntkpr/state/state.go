@@ -14,7 +14,8 @@ import (
 type State struct {
 	LastContext context.ContextPtr `json:"lastContext"` // previous context
 	// LastCursor  int                `json:"lastCursor"`  // previous current note
-	Cursors map[context.ContextPtr](uint) `json:"Cursors"`
+	Cursors  map[context.ContextPtr](uint) `json:"Cursors"`
+	YOffsets map[context.ContextPtr](int)  `json:"YOffsets"` // viewport scroll offsets per context
 }
 
 // use a function to return different instances. Trick.
@@ -22,6 +23,11 @@ func DefaultState() *State {
 	return &State{
 		LastContext: context.Default,
 		Cursors: map[context.ContextPtr](uint){
+			context.Default: 0,
+			context.Recent:  0,
+			context.Search:  0,
+		},
+		YOffsets: map[context.ContextPtr](int){
 			context.Default: 0,
 			context.Recent:  0,
 			context.Search:  0,

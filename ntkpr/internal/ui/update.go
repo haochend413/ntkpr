@@ -343,9 +343,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateStatusBar()
 
 			case key.Matches(msg, tableKeys.SwitchCtxSearch):
+				// Save current context's YOffset before switching
+				m.yOffsets[m.CurrentContext] = m.table.YOffset()
+				// First, save current cursor and switch context in app
+				new_cursor := m.app.UpdateCurrentList(context.Search, uint(m.table.Cursor()))
 				m.CurrentContext = context.Search
-				new_cursor := m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
-				m.table.SetCursor(int(new_cursor))
+				m.table.SetCursorAndOffset(int(new_cursor), m.yOffsets[context.Search])
 				m.focus = FocusSearch
 				m.searchInput.Focus()
 				m.table.Blur()
@@ -355,36 +358,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, tableKeys.SwitchCtxRecent):
-				m.CurrentContext = context.Recent
-				new_cursor := m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
-				m.updateTable(context.Recent)
-				if len(m.app.GetCurrentNotes()) > 0 {
-					// Use saved cursor position for this context
-					if int(new_cursor) >= len(m.app.GetCurrentNotes()) {
-						new_cursor = uint(len(m.app.GetCurrentNotes()) - 1)
-					}
-					m.table.SetCursor(int(new_cursor))
-					m.app.SelectCurrentNote(int(new_cursor))
-					m.textarea.SetValue(m.app.CurrentNoteContent())
-					m.updateTopicsTable()
-				}
-				m.updateStatusBar()
+				m.switchToContext(context.Recent)
 
 			case key.Matches(msg, tableKeys.SwitchCtxDefault):
-				m.CurrentContext = context.Default
-				new_cursor := m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
-				m.updateTable(context.Default)
-				if len(m.app.GetCurrentNotes()) > 0 {
-					// Use saved cursor position for this context
-					if int(new_cursor) >= len(m.app.GetCurrentNotes()) {
-						new_cursor = uint(len(m.app.GetCurrentNotes()) - 1)
-					}
-					m.table.SetCursor(int(new_cursor))
-					m.app.SelectCurrentNote(int(new_cursor))
-					m.textarea.SetValue(m.app.CurrentNoteContent())
-					m.updateTopicsTable()
-				}
-				m.updateStatusBar()
+				m.switchToContext(context.Default)
 			}
 
 		case FocusEdit:

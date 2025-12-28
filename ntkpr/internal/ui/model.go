@@ -46,6 +46,7 @@ type Model struct {
 	width          int
 	height         int
 	ready          bool
+	yOffsets       map[context.ContextPtr]int // viewport YOffsets per context
 }
 
 // NewModel initializes a new UI model
@@ -158,6 +159,11 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 		statusBar:   sb,
 		topicInput:  topicInput,
 		focus:       FocusTable,
+		yOffsets: map[context.ContextPtr]int{
+			context.Default: 0,
+			context.Recent:  0,
+			context.Search:  0,
+		},
 	}
 
 	//set states
@@ -176,22 +182,15 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// This is rather unecessary. We need more efficient ways. Easy actually : passing in more signals.
-// updateTable updates the table rows based on the context.ContextPtr; it also updates the context.ContextPtr of the app;
+// updateTable renders the table rows for the given context
+// NOTE: This only renders the table. Context switching must be done separately via app.UpdateCurrentList()
 func (m *Model) updateTable(c context.ContextPtr) {
 	m.CurrentContext = c
-	// Here，although cursor is on model level, we need to pass it done to app (context) level to store it.
-
-	m.app.UpdateCurrentList(c, uint(m.table.Cursor())) // Switch the app's context to match
-	// This needs to be reflected to the terminal. Maybe a new architecture will do. Like a pointer to the list.
-	// We need to find a new way to deal with search.
+	// Get notes from the current context (context should already be switched by caller)
 	var selectedNotes []*models.Note
 
 	selectedNotes = m.app.GetCurrentNotes()
 
-	// sort.Slice(notes, func(i, j int) bool {
-	// 	return notes[i].ID < notes[j].ID
-	// })
 	rows := make([]table.Row, len(selectedNotes))
 	for i, note := range selectedNotes {
 		topics := make([]string, len(note.Topics))
