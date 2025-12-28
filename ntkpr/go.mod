@@ -7,7 +7,7 @@ toolchain go1.24.4
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/haochend413/bubbles v0.1.3
+	github.com/haochend413/bubbles v0.2.0
 	github.com/spf13/cobra v1.10.1
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/sqlite v1.6.0
@@ -41,4 +41,4 @@ require (
 	golang.org/x/text v0.28.0 // indirect
 )
 
-replace github.com/haochend413/bubbles => ../../bubbles //For development.
+// replace github.com/haochend413/bubbles => ../../bubbles //For development.
