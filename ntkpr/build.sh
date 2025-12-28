@@ -1,1 +1,2 @@
-go build -o bin/c
+go build -o ./bin/c
+./bin/c
