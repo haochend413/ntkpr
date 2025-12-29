@@ -9,33 +9,45 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            id: linux
-            publish: true
           - os: macos-latest
             id: darwin
-            publish: false
+          - os: windows-latest
+            id: windows
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
 
-      - name: Run GoReleaser
+      - name: Build (no publish)
         uses: goreleaser/goreleaser-action@v5
         with:
           version: "~> v2"
-          args: >
-            release --clean
-            --id=${{ matrix.id }}
-            ${{ matrix.publish == false && '--skip=publish' || '' }}
+          args: build --clean --id=${{ matrix.id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Publish release
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: "~> v2"
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
