@@ -1,2 +1,2 @@
-go build -o ./bin/c
-./bin/c
+go build -o ./bin/ntkpr
+./bin/ntkpr
