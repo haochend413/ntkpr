@@ -123,3 +123,7 @@ bubbletea_build/
 .db
 # General editor backups
 *~
+
+
+# Added by goreleaser init:
+dist/
