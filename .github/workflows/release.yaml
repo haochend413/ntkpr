@@ -35,7 +35,7 @@ jobs:
           version: "~> v2"
           args: >
             release --clean
-            --ids=${{ matrix.id }}
+            --id=${{ matrix.id }}
             ${{ matrix.publish == false && '--skip=publish' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
