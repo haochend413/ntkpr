@@ -9,12 +9,13 @@ version: 2
 
 before:
   hooks:
-    - go mod tidy
-    - go generate ./ntkpr/...
+    - cd ntkpr && go mod tidy
+    - cd ntkpr && go generate ./...
 
 builds:
   - id: ntkpr
-    main: ./ntkpr
+    dir: ntkpr
+    main: .
     binary: ntkpr
     env:
       - CGO_ENABLED=0
