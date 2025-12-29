@@ -10,16 +10,32 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            id: linux
+            publish: true
+          - os: macos-latest
+            id: darwin
+            publish: false
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
 
-      - uses: goreleaser/goreleaser-action@v5
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
         with:
           version: "~> v2"
-          args: release --clean
+          args: >
+            release --clean
+            --ids=${{ matrix.id }}
+            ${{ matrix.publish == false && '--skip=publish' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
