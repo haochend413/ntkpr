@@ -48,27 +48,23 @@ func (m Model) CollectState() *state.State {
 	// Save current cursor position to the current context before collecting
 	m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
 	s.Cursors = m.app.GetCursors()
-	// Save YOffsets for all contexts, with current context's offset updated
 	s.YOffsets = map[context.ContextPtr](int){
 		context.Default: m.yOffsets[context.Default],
 		context.Recent:  m.yOffsets[context.Recent],
 		context.Search:  m.yOffsets[context.Search],
 	}
-	// Update the current context's YOffset with the actual table value
+	// Save current Offset, just in case
 	s.YOffsets[m.CurrentContext] = m.table.YOffset()
 	return s
 }
 
-// switchToContext saves the current context's viewport state and switches to a new context
-// This preserves both cursor position and viewport YOffset between context switches
 func (m *Model) switchToContext(newContext context.ContextPtr) {
-	// Save current context's YOffset before switching
+	// save offset
 	m.yOffsets[m.CurrentContext] = m.table.YOffset()
 
-	// Switch context and get the saved cursor for the new context
+	// get cursor
 	new_cursor := m.app.UpdateCurrentList(newContext, uint(m.table.Cursor()))
 
-	// Render the table for the new context
 	m.updateTable(newContext)
 
 	// Restore cursor and YOffset for the new context
