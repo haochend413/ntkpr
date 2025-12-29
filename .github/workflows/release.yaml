@@ -10,15 +10,7 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            id: darwin
-          - os: windows-latest
-            id: windows
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +22,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v5
         with:
           version: "~> v2"
-          args: build --clean --id=${{ matrix.id }}
+          args: build --clean --id=darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
