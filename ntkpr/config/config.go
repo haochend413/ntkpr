@@ -15,14 +15,9 @@ type Config struct {
 }
 
 func generateDefault() Config {
-	dataFilePath, err1 := dataFilePathDefault()
-	if err1 != nil {
-		fmt.Fprintf(os.Stderr, "Error getting default data file path: %v\n", err1)
-	}
-	stateFilePath, err2 := stateFilePathDefault()
-	if err2 != nil {
-		fmt.Fprintf(os.Stderr, "Error getting default state file path: %v\n", err2)
-	}
+	dataFilePath := DataFilePathDefault()
+	stateFilePath := StateFilePathDefault()
+
 	cfg := Config{
 		StateFilePath: stateFilePath,
 		DataFilePath:  dataFilePath,
@@ -31,11 +26,7 @@ func generateDefault() Config {
 }
 
 func LoadOrCreateConfig() Config {
-	path, err := ConfigPath()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting config path: %v, using default\n", err)
-		return generateDefault()
-	}
+	path := ConfigPath()
 
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {

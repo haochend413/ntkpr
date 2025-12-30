@@ -32,55 +32,40 @@ func expandPath(path string) (string, error) {
 	return path, nil
 }
 
-// stateFilePath points to the state.json file
-func stateFilePathDefault() (string, error) {
+func BasePathDefault() (string, error) {
 	var path string
 
 	switch runtime.GOOS {
 	case "darwin":
-		path = "~/Library/Application Support/ntkpr/state.json"
+		path = "~/Library/Application Support/ntkpr/"
 	case "linux":
-		path = "~/.local/state/ntkpr/state.json"
+		path = "~/.local/state/ntkpr/"
 	case "windows":
-		path = "%APPDATA%\\ntkpr\\state.json"
+		path = "%APPDATA%\\ntkpr\\"
 	default:
+		fmt.Printf("unsupported OS: %s\n", runtime.GOOS)
+		expanded, _ := expandPath(path)
+		fmt.Printf("BasePathDefault: OS=%s, path=%s, expanded=%s\n", runtime.GOOS, path, expanded)
 		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
-	return expandPath(path)
+	expanded, err := expandPath(path)
+	return expanded, err
+}
+
+// stateFilePath points to the state.json file
+func StateFilePathDefault() string {
+	basePath, _ := BasePathDefault()
+	return basePath + "/state.json"
 }
 
 // dataFilePathDefault points to the FOLDER that contains all the dbs.
-func dataFilePathDefault() (string, error) {
-	var path string
-
-	switch runtime.GOOS {
-	case "darwin":
-		path = "~/Library/Application Support/ntkpr/db"
-	case "linux":
-		path = "~/.local/share/ntkpr/db"
-	case "windows":
-		path = "%APPDATA%\\ntkpr\\db"
-	default:
-		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
-	}
-
-	return expandPath(path)
+func DataFilePathDefault() string {
+	basePath, _ := BasePathDefault()
+	return basePath + "/db"
 }
 
-func ConfigPath() (string, error) {
-	var path string
-
-	switch runtime.GOOS {
-	case "darwin":
-		path = "~/Library/Application Support/ntkpr/config.yaml"
-	case "linux":
-		path = "~/.config/ntkpr/config.yaml"
-	case "windows":
-		path = "%APPDATA%\\ntkpr\\config.yaml"
-	default:
-		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
-	}
-
-	return expandPath(path)
+func ConfigPath() string {
+	basePath, _ := BasePathDefault()
+	return basePath + "/config.yaml"
 }
