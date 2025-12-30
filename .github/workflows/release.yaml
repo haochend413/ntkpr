@@ -3,36 +3,39 @@ name: Release
 on:
   push:
     tags:
-      - "v0.2.*"
+      - "v*"
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            id: linux
-          - os: macos-latest
-            id: darwin
-
+        os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.22"
 
-      - name: Release
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          version: "~> v2"
-          args: release --clean --id=${{ matrix.id }}
+      - name: Build
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CGO_ENABLED: 1
+        run: |
+          mkdir -p dist
+
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            GOOS=darwin GOARCH=arm64 go build -o dist/ntkpr_darwin_arm64 ./ntkpr
+            GOOS=darwin GOARCH=amd64 go build -o dist/ntkpr_darwin_amd64 ./ntkpr
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            GOOS=linux GOARCH=amd64 go build -o dist/ntkpr_linux_amd64 ./ntkpr
+          fi
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
