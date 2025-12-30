@@ -27,12 +27,13 @@ jobs:
           CGO_ENABLED: 1
         run: |
           mkdir -p dist
+          cd ntkpr
 
           if [[ "$RUNNER_OS" == "macOS" ]]; then
-            GOOS=darwin GOARCH=arm64 go build -o dist/ntkpr_darwin_arm64 ./ntkpr
-            GOOS=darwin GOARCH=amd64 go build -o dist/ntkpr_darwin_amd64 ./ntkpr
+            GOOS=darwin GOARCH=arm64 go build -o ../dist/ntkpr_darwin_arm64 .
+            GOOS=darwin GOARCH=amd64 go build -o ../dist/ntkpr_darwin_amd64 .
           elif [[ "$RUNNER_OS" == "Linux" ]]; then
-            GOOS=linux GOARCH=amd64 go build -o dist/ntkpr_linux_amd64 ./ntkpr
+            GOOS=linux GOARCH=amd64 go build -o ../dist/ntkpr_linux_amd64 .
           fi
 
       - name: Upload to GitHub Release
