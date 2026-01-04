@@ -61,7 +61,7 @@ You can also clone the git repo and build it locally with `go build -o ntkpr`. T
 ntkpr # launch TUI
 ```
 ### GUI commands
-These now only works if you clone the it repo and run it locally. 
+These now only works if you clone the git repo and build/run it locally. 
 ```bash
 ntkpr gui # launch GUI
 ```
