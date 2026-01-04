@@ -28,6 +28,9 @@ chmod +x ntkpr
 sudo mv ntkpr /usr/local/bin/
 ```
 
+### Windows 
+Windows is currently not supported. You can run `ntkpr` on WSL if you're using Windows. 
+
 You can also clone the git repo and build it locally with `go build -o ntkpr`. This will allow you to try the locally hosted GUI interface and the LLM agent. 
 
 ## Keymaps
