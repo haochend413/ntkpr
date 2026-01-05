@@ -10,13 +10,13 @@ import (
 
 // Global keys that work in any mode
 type globalKeyMap struct {
-	QuitApp       key.Binding
-	SwitchContext key.Binding
+	QuitApp           key.Binding
+	SwitchFocusWindow key.Binding
 }
 
 var globalKeys = globalKeyMap{
-	QuitApp:       key.NewBinding(key.WithKeys("ctrl+c")),
-	SwitchContext: key.NewBinding(key.WithKeys("tab")),
+	QuitApp:           key.NewBinding(key.WithKeys("ctrl+c")),
+	SwitchFocusWindow: key.NewBinding(key.WithKeys("tab")),
 }
 
 // Table focus keys
@@ -169,7 +169,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.app.SaveCurrentNote(m.textarea.Value())
 			m.app.SyncWithDatabase()
 			return m, tea.Quit
-		case key.Matches(msg, globalKeys.SwitchContext):
+		case key.Matches(msg, globalKeys.SwitchFocusWindow):
 			switch m.focus {
 			case FocusSearch:
 				m.focus = FocusTable
