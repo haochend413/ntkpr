@@ -53,22 +53,14 @@ And how do we sync ? What is the sync schedule ?
 So we keep what is changed, and it will only be truely helpful if we selectively update. But let's also ignore it for now.
 We keep what's changed.
 
-What do we need to specify what has changed: and ID (the ID of a thread / branch / Note), and a type, indicating the type of action.
+What do we need to specify what has changed: an ID (the ID of a thread / branch / Note), and a type, indicating the type of action.
 
 
 Actually, note and branch creation / deletion should all be subject to its superior. Thus there is no such thing as "add note to branch"
 One note should only belong to a single thread, but there can be multiple branches.
 This is the reason why we only have "add note to branch", since it is not equivalent to creating a new note.
 */
-
-/* This is actuallly an important part. This sets up the overall writing mechanism of the notes. Important! */
-
 /*
-So how do we interact with the notes ?
-We load from database into context;
-When we do stuff, like create / delete / restore / update， we keep the actual content within the note structure that is combined with its id;
-Its id, then, is managed by this component.
-The current content of each note is in default the newest version compared to database.
 
 Functions here should be triggered when we enter keystrokes, handled by bubbletea update function.
 */
