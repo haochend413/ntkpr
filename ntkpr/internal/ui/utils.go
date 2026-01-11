@@ -6,7 +6,7 @@ import (
 )
 
 // Distribute state in json on startup
-func (m *Model) DistributeState(s *state.State) {
+func (m *Model) DistributeState(s *state.UIState) {
 	// Initialize YOffsets if nil (for backwards compatibility with old state files)
 	if s.YOffsets == nil {
 		s.YOffsets = map[context.ContextPtr](int){
@@ -21,7 +21,7 @@ func (m *Model) DistributeState(s *state.State) {
 		context.Recent:  s.YOffsets[context.Recent],
 		context.Search:  s.YOffsets[context.Search],
 	}
-	// First restore saved cursors
+	// First restore saved cursors to contexts
 	m.app.SetCursors(s.Cursors)
 	// Then switch to the saved context (this will use the restored cursor)
 	m.app.UpdateCurrentList(s.LastContext, s.Cursors[s.LastContext])

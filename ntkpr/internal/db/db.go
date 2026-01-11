@@ -34,7 +34,7 @@ func NewDB(path string) (*DB, error) {
 		return nil, err
 	}
 	// Migrate schema
-	err = conn.AutoMigrate(&models.Note{}, &models.Topic{}, &models.DailyTask{})
+	err = conn.AutoMigrate(&models.Note{}, &models.Topic{}, &models.DailyTask{}, &models.Thread{}, &models.Branch{})
 	if err != nil {
 		return nil, err
 	}

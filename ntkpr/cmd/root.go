@@ -42,11 +42,11 @@ var rootCmd = &cobra.Command{
 			log.Fatal("Failed to load state:", err)
 		}
 
-		// Initialize application
-		globalApp = app.NewApp(globalDB)
+		// Initialize application. This should be the lowest level, then s should start syncing into here.
+		globalApp = app.NewApp(globalDB, s.App)
 
 		// Initialize UI model
-		model := ui.NewModel(globalApp, globalCfg, s)
+		model := ui.NewModel(globalApp, globalCfg, s.UI)
 		globalModel = &model
 
 		// Run Bubble Tea program

@@ -41,4 +41,4 @@ require (
 	golang.org/x/text v0.28.0 // indirect
 )
 
-// replace github.com/haochend413/bubbles => ../../bubbles //For development.
+replace github.com/haochend413/bubbles => ../../bubbles //For development.
