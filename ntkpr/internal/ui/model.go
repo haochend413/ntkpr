@@ -35,7 +35,7 @@ const (
 type Model struct {
 	app            *app.App
 	Config         *config.Config
-	CurrentContext context.ContextPtr
+	CurrentContext context.ContextPtr // This is just boring. We can fetch it from app level. We do not neeed it.
 	table          table.Model
 	topicsTable    table.Model
 	textarea       textarea.Model
@@ -185,7 +185,7 @@ func (m Model) Init() tea.Cmd {
 // updateTable renders the table rows for the given context
 // NOTE: This only renders the table. Context switching must be done separately via app.UpdateCurrentList()
 func (m *Model) updateTable(c context.ContextPtr) {
-	m.CurrentContext = c
+	m.CurrentContext = c // lets move this into app
 	// Get notes from the current context (context should already be switched by caller)
 	var selectedNotes []*models.Note
 

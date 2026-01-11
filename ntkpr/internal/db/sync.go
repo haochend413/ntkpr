@@ -11,7 +11,6 @@ import (
 )
 
 // This needs further testings and debuggings. I have a feeling that this is not entirely correct.
-
 func (d *DB) SyncData(notesMap map[uint]*models.Note,
 	threadsMap map[uint]*models.Thread,
 	branchesMap map[uint]*models.Branch,
@@ -297,12 +296,22 @@ func (d *DB) loadAll() ([]*models.Note, []*models.Topic, []*models.Thread, []*mo
 	}
 
 	var dbThreads []*models.Thread
-	if err := d.Conn.Preload("Branches").Order("created_at ASC").Find(&dbThreads).Error; err != nil {
+	// Fully nested: Thread -> Branches -> Notes -> Topics
+	if err := d.Conn.
+		Preload("Branches.Notes.Topics").
+		Preload("Branches.Notes.Branches"). // Notes also know which branches they're in
+		Order("created_at ASC").
+		Find(&dbThreads).Error; err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	var dbBranches []*models.Branch
-	if err := d.Conn.Preload("Notes").Order("created_at ASC").Find(&dbBranches).Error; err != nil {
+	// Branches with all their notes and topics
+	if err := d.Conn.
+		Preload("Notes.Topics").
+		Preload("Notes.Branches"). // Notes know all their branches
+		Order("created_at ASC").
+		Find(&dbBranches).Error; err != nil {
 		return nil, nil, nil, nil, err
 	}
 

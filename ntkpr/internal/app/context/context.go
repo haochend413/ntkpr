@@ -2,6 +2,7 @@ package context
 
 // Context is a wrapper that helps ordering and filtering the raw lists of notes, and store lists from the map.
 // In the future, maybe we can add a config menu that allows for multiple orders.
+// Context also defines current list, which in combination with cursor, defines current item pointers.
 
 import (
 	"sort"
@@ -35,7 +36,7 @@ const (
 	Search  ContextPtr = 2
 )
 
-// This is replicative, but can be useful.
+// This is replicative, but might be useful in the future.
 type ContextOrder int
 
 const (
@@ -69,6 +70,7 @@ func NewNoteContextMgr() *NoteContextMgr {
 	}
 }
 
+// SwitchContext switches the contextMgr into a new context and update previous context.
 func (cm *NoteContextMgr) SwitchContext(c ContextPtr) {
 	// make sure they are different
 	if c != cm.currentContext {
