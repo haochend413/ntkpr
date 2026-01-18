@@ -75,17 +75,30 @@ type EditType = int
 
 // All possible edit types
 const (
-	None                 EditType = -1
-	CreateNote           EditType = 0
-	UpdateNote           EditType = 1
-	DeleteNote           EditType = 2
-	CreateThread         EditType = 3
-	DeleteThread         EditType = 6
-	CreateBranch         EditType = 7 // since branch do not persist across threads, we do not have to introduce add / remove branch
-	AddNoteToBranch      EditType = 8
-	RemoveNoteFromBranch EditType = 9
-	DeleteBranch         EditType = 10
+	None         EditType = -1
+	CreateNote   EditType = 0
+	UpdateNote   EditType = 1
+	DeleteNote   EditType = 2
+	CreateThread EditType = 3
+	UpdateThread EditType = 4
+	DeleteThread EditType = 6
+	CreateBranch EditType = 7 // since branch do not persist across threads, we do not have to introduce add / remove branch
+	UpdateBranch EditType = 8
+	DeleteBranch EditType = 10
 )
+
+// EntityType constants for EditKey
+const (
+	EntityNote   = "note"
+	EntityBranch = "branch"
+	EntityThread = "thread"
+)
+
+// EditKey is a composite key for EditMap to avoid ID collisions between entity types
+type EditKey struct {
+	EntityType string // "note", "branch", "thread"
+	ID         uint
+}
 
 // This is only note-wise, not string - wise
 // Also there must be a good mechanis around all this.
@@ -96,8 +109,30 @@ type Edit struct {
 }
 
 type EditMgr struct {
-	EditStack []*Edit        // Time Order, keep this only for recent case. Actually not needed for functionality.
-	EditMap   map[uint]*Edit // We need this to be different ? I dont think so.
+	EditStack []*Edit           // Time Order, keep this only for recent case. Actually not needed for functionality.
+	EditMap   map[EditKey]*Edit // Keyed by (EntityType, ID) to avoid collisions between notes, branches, and threads
+}
+
+// getEntityType returns the entity type string for a given EditType
+func getEntityType(tp EditType) string {
+	switch tp {
+	case CreateNote, UpdateNote, DeleteNote:
+		return EntityNote
+	case CreateThread, UpdateThread, DeleteThread:
+		return EntityThread
+	case CreateBranch, UpdateBranch, DeleteBranch:
+		return EntityBranch
+	default:
+		return ""
+	}
+}
+
+// NewEditMgr creates a new edit manager
+func NewEditMgr() *EditMgr {
+	return &EditMgr{
+		EditStack: make([]*Edit, 0),
+		EditMap:   make(map[EditKey]*Edit),
+	}
 }
 
 // This function sets up edit stack according to basic handling logic.
@@ -105,9 +140,11 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 	em.EditStack = append(em.EditStack, curr)
 	id := curr.ID
 	tp := curr.EditType
+	entityType := getEntityType(tp)
+	key := EditKey{EntityType: entityType, ID: id}
 	// add to map, be sure of index !
 	// check
-	if edit, exists := em.EditMap[id]; exists {
+	if edit, exists := em.EditMap[key]; exists {
 		// Key exists, edit contains the value
 		prevType := edit.EditType
 		switch tp {
@@ -134,10 +171,10 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 			switch prevType {
 			case CreateNote:
 				// Created then deleted without sync, no DB operation needed
-				em.EditMap[id].EditType = None
+				em.EditMap[key].EditType = None
 			case UpdateNote:
 				// Updated then deleted = need to delete from DB
-				em.EditMap[id].EditType = DeleteNote
+				em.EditMap[key].EditType = DeleteNote
 			case DeleteNote:
 				return fmt.Errorf("invalid state: attempting to DeleteNote %d that is already marked for DeleteNote", id)
 			}
@@ -150,11 +187,20 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 			case DeleteThread:
 				return fmt.Errorf("invalid state: attempting to CreateThread %d that is already marked for DeleteThread", id)
 			}
+		case UpdateThread:
+			switch prevType {
+			case CreateThread:
+			case UpdateThread:
+			case DeleteThread:
+				return fmt.Errorf("invalid state: attempting to UpdateNote %d that is marked for DeleteNote", id)
+			}
 		case DeleteThread:
 			switch prevType {
 			case CreateThread:
 				// Created then deleted without sync, no DB operation needed
-				em.EditMap[id].EditType = None
+				em.EditMap[key].EditType = None
+			case UpdateThread:
+				em.EditMap[key].EditType = DeleteThread
 
 			case DeleteThread:
 				return fmt.Errorf("invalid state: attempting to DeleteThread %d that is already marked for DeleteThread", id)
@@ -165,20 +211,19 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 			switch prevType {
 			case CreateBranch:
 				return fmt.Errorf("invalid state: attempting to CreateBranch %d that is already marked for CreateBranch", id)
-			case AddNoteToBranch, RemoveNoteFromBranch:
+			case UpdateBranch:
 				return fmt.Errorf("invalid state: attempting to CreateBranch %d that is already marked for modification", id)
 			case DeleteBranch:
 				return fmt.Errorf("invalid state: attempting to CreateBranch %d that is already marked for DeleteBranch", id)
 			}
-		case AddNoteToBranch, RemoveNoteFromBranch:
+		case UpdateBranch:
 			switch prevType {
 			case CreateBranch:
 				// Keep as CreateBranch - new branch being modified before sync
 				// No change needed, edit.EditType is already CreateBranch
-			case AddNoteToBranch, RemoveNoteFromBranch:
+			case UpdateBranch:
 				// Already marked for modification, update to latest operation
-				// Wait... This might need more config. We need to know which is which ? Where do we keep the info ?
-				em.EditMap[id].EditType = tp
+
 			case DeleteBranch:
 				return fmt.Errorf("invalid state: attempting to modify branch %d that is marked for DeleteBranch", id)
 			}
@@ -186,37 +231,37 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 			switch prevType {
 			case CreateBranch:
 				// Created then deleted without sync, no DB operation needed。 This also should not happen since the ID is going non stop.
-				em.EditMap[id].EditType = None
-			case AddNoteToBranch, RemoveNoteFromBranch:
+				em.EditMap[key].EditType = None
+			case UpdateBranch:
 				// Modified then deleted = need to delete from DB
-				em.EditMap[id].EditType = DeleteBranch
+				em.EditMap[key].EditType = DeleteBranch
 			case DeleteBranch:
 				return fmt.Errorf("invalid state: attempting to DeleteBranch %d that is already marked for DeleteBranch", id)
 			}
 		}
 	} else {
 		// Key doesn't exist, this is a new edit
-		em.EditMap[id] = &Edit{ID: id, EditType: tp}
+		em.EditMap[key] = &Edit{ID: id, EditType: tp}
 	}
 
 	return nil
 }
 
-// NewEditMgr creates a new edit manager
-func NewEditMgr() *EditMgr {
-	return &EditMgr{
-		EditStack: make([]*Edit, 0),
-		EditMap:   make(map[uint]*Edit),
-	}
-}
-
 // Clear resets the edit manager
 func (em *EditMgr) Clear() {
 	em.EditStack = make([]*Edit, 0)
-	em.EditMap = make(map[uint]*Edit)
+	em.EditMap = make(map[EditKey]*Edit)
 }
 
 // RemoveEdit removes an edit from the map (for undo operations)
-func (em *EditMgr) RemoveEdit(id uint) {
-	delete(em.EditMap, id)
+func (em *EditMgr) RemoveEdit(entityType string, id uint) {
+	key := EditKey{EntityType: entityType, ID: id}
+	delete(em.EditMap, key)
+}
+
+// GetEdit retrieves an edit from the map
+func (em *EditMgr) GetEdit(entityType string, id uint) (*Edit, bool) {
+	key := EditKey{EntityType: entityType, ID: id}
+	edit, exists := em.EditMap[key]
+	return edit, exists
 }

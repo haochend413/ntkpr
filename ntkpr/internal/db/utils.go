@@ -26,6 +26,23 @@ func (d *DB) GetCreateNoteID() uint {
 	return maxID + 1
 }
 
+func (d *DB) GetCreateBranchID() uint {
+	// Query the database for the maximum ID, including deleted notes
+	var maxID uint
+	if err := d.Conn.Table("branches").Select("MAX(id)").Row().Scan(&maxID); err != nil {
+		maxID = 0
+	}
+	return maxID + 1
+}
+func (d *DB) GetCreateThreadID() uint {
+	// Query the database for the maximum ID, including deleted notes
+	var maxID uint
+	if err := d.Conn.Table("threads").Select("MAX(id)").Row().Scan(&maxID); err != nil {
+		maxID = 0
+	}
+	return maxID + 1
+}
+
 // export the serialized data into desired position
 func (d *DB) ExportNoteToJSON(path string) error {
 	dir := filepath.Dir(path)

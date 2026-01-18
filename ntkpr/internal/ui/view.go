@@ -11,55 +11,38 @@ func (m Model) View() string {
 		return "Initializing..."
 	}
 
-	// Main content height is set in Update, use it for layout
+	// Main content height
 	mainContentHeight := m.height - 3 // Reserve 3 lines for help + status bar
 
-	// Render left side (table and optionally search)
-	var leftSide string
-	if m.focus == FocusSearch {
-		// Both search and table visible
-		searchBox := styles.FocusedStyle.Render(m.searchInput.View())
-		tableBox := m.renderTableBox()
+	// Render left side (three tables stacked vertically: threads, branches, notes)
+	threadsBox := m.renderThreadsTableBox()
+	branchesBox := m.renderBranchesTableBox()
+	notesBox := m.renderNotesTableBox()
 
-		// Use Bottom alignment so table bottom stays fixed and search appears above
-		leftSide = lipgloss.JoinVertical(0,
-			searchBox,
-			tableBox,
-		)
-	} else {
-		// Only table visible
-		tableBox := m.renderTableBox()
-		leftSide = tableBox
-	}
+	leftSide := lipgloss.JoinVertical(lipgloss.Left,
+		// styles.TitleStyle.Render("Threads"),
+		threadsBox,
+		// styles.TitleStyle.Render("Branches"),
+		branchesBox,
+		// styles.TitleStyle.Render("Notes"),
+		notesBox,
+	)
 
-	// Render right side (textarea, topics table, topic input)
+	// Render right side (textarea and changelog)
 	var editBox string
 	if m.focus == FocusEdit {
-		editBox = styles.FocusedStyle.Render(m.textarea.View())
+		editBox = styles.FocusedStyle.Render(m.textArea.View())
 	} else {
-		editBox = styles.BaseStyle.Render(m.textarea.View())
+		editBox = styles.BaseStyle.Render(m.textArea.View())
 	}
 
-	var topicsTableBox string
-	if m.focus == FocusTopics {
-		topicsTableBox = styles.FocusedStyle.Render(m.topicsTable.View())
-	} else {
-		topicsTableBox = styles.BaseStyle.Render(m.topicsTable.View())
-	}
-
-	var topicInputBox string
-	if m.focus == FocusTopics {
-		topicInputBox = styles.FocusedStyle.Render(m.topicInput.View())
-	} else {
-		topicInputBox = styles.BaseStyle.Render(m.topicInput.View())
-	}
+	changelogBox := m.renderChangelogTableBox()
 
 	rightSide := lipgloss.JoinVertical(lipgloss.Left,
+		// styles.TitleStyle.Render("Editor"),
 		editBox,
-		styles.TitleStyle.Render("Topics"),
-		topicsTableBox,
-		styles.TitleStyle.Render("Add Topics"),
-		topicInputBox,
+		// styles.TitleStyle.Render("Changes"),
+		changelogBox,
 	)
 
 	// Join left and right sides horizontally
@@ -68,7 +51,7 @@ func (m Model) View() string {
 		Render(lipgloss.JoinHorizontal(lipgloss.Top, leftSide, rightSide))
 
 	help := styles.HelpStyle.Render(
-		"Tab: cycle focus • Enter: select/search/add-topic • /: search • Ctrl+N: new note (table only) • Ctrl+S: save • Ctrl+Q: sync DB • Del: delete note/topic • Ctrl+C: quit",
+		"Tab: cycle tables • Enter: select • Esc: back/cancel • e: edit • n: new • q/w: prev/next table • Ctrl+D: delete • Ctrl+H: highlight • Ctrl+P: private • Ctrl+L: changelog • Ctrl+S: save • Ctrl+Q: sync • Ctrl+C: quit",
 	)
 
 	// Render status bar
@@ -82,12 +65,42 @@ func (m Model) View() string {
 	)
 }
 
-func (m Model) renderTableBox() string {
-	if m.focus == FocusTable {
-		m.table.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.Render(m.table.View())
+func (m Model) renderThreadsTableBox() string {
+	if m.focus == FocusThreads {
+		m.threadsTable.SetStyles(styles.FocusedTableStyle)
+		return styles.FocusedStyle.Render(m.threadsTable.View())
 	} else {
-		m.table.SetStyles(styles.BaseTableStyle)
-		return styles.BaseStyle.Render(m.table.View())
+		m.threadsTable.SetStyles(styles.BaseTableStyle)
+		return styles.BaseStyle.Render(m.threadsTable.View())
+	}
+}
+
+func (m Model) renderBranchesTableBox() string {
+	if m.focus == FocusBranches {
+		m.branchesTable.SetStyles(styles.FocusedTableStyle)
+		return styles.FocusedStyle.Render(m.branchesTable.View())
+	} else {
+		m.branchesTable.SetStyles(styles.BaseTableStyle)
+		return styles.BaseStyle.Render(m.branchesTable.View())
+	}
+}
+
+func (m Model) renderNotesTableBox() string {
+	if m.focus == FocusNotes {
+		m.notesTable.SetStyles(styles.FocusedTableStyle)
+		return styles.FocusedStyle.Render(m.notesTable.View())
+	} else {
+		m.notesTable.SetStyles(styles.BaseTableStyle)
+		return styles.BaseStyle.Render(m.notesTable.View())
+	}
+}
+
+func (m Model) renderChangelogTableBox() string {
+	if m.focus == FocusChangelog {
+		m.changeTable.SetStyles(styles.FocusedTableStyle)
+		return styles.FocusedStyle.Render(m.changeTable.View())
+	} else {
+		m.changeTable.SetStyles(styles.BaseTableStyle)
+		return styles.BaseStyle.Render(m.changeTable.View())
 	}
 }
