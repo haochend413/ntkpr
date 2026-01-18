@@ -1,11 +1,46 @@
 package context
 
-import (
-	"sort"
-	"strings"
+import "github.com/haochend413/ntkpr/internal/app/data"
 
-	"github.com/haochend413/ntkpr/internal/models"
-)
+// Context is a wrapper that helps ordering and filtering the raw lists of notes, and store lists from the map.
+// In the future, maybe we can add a config menu that allows for multiple orders.
+// Context also defines current list, which in combination with cursor, defines current item pointers.
+
+// This should be improved. How ? What is it that I want ?
+// How do we define recent activity ? Is "recent note" still meaningful?
+// Should this happen globally, across all ? or separate into layers ?
+
+// Think.
+
+// Well, we will have a "changelog" window to demonstrate logs.
+// Then how should context work ? search is definitely useful. We probably need recent ? Or should search be in a different regime.
+
+// OK. Enable contexts for all thread, branch and notes. At least for now.
+
+// NONONO. forget about it. This is silly. let's only do context for notes for now, with minimum change.
+// Wait. But in that case, we still need a wrapper to render lists from maps. This layer is still required, it's just that we remove the unecessary functionalities.
+
+// This can Actually be done as a general type. However, I am expecting something different for branch / thread / notes, thus let's do it this way.
+
+// Good. I think a thin app layer should work. However, this means that I will have to expand the API layers of my context pkg.
+// context should handle all data related stuff : inner logic of sort and order, data, and cursor.
+
+// Right now there is a problem : different threads are disconnected with its branches and notes. Switching threads will not trigger switch of branch and notes.
+
+// Context requires further refining. Cursors should also be a part of context state ? When refreshing.
+
+// Right now the problem is that this context is designed to only have one list. Switching from default to default is never meaningful.
+// However, right now we might have several lists co-existing in our app.
+// Let's keep that simple and just pass in cursor as well. In this case we enable switching to a different set of notes. (?)
+// Maybe we need another layer of wrappers called data manager, and then context is just wrapping around data manageer.
+// What should each of them handle ?
+
+// DataMgr should handle the switching logic between threads, branches and notes. It keeps record of all threads, and exposing current threads, branches and notes.
+// ContextMgr will Demonstrate based on that.
+// DataMgr will also be responsible for syncing with database, instead of being handled directly by App.
+
+// Ok let's save it first. First have the functionalities, and then based on needs, decide whether we need this module.
+// Right now, just use the data somthting.
 
 type ContextPtr int
 
@@ -16,6 +51,7 @@ const (
 	Search  ContextPtr = 2
 )
 
+// This is replicative, but might be useful in the future.
 type ContextOrder int
 
 const (
@@ -23,197 +59,39 @@ const (
 	UpdateAt ContextOrder = 1 // recent, most recently updated
 )
 
-type Context struct {
-	Name   ContextPtr
-	Notes  []*models.Note
-	Order  ContextOrder
-	Cursor uint
-}
-
+// Everything should be fetched from ContextMgr.
 type ContextMgr struct {
-	previousContext ContextPtr
-	currentContext  ContextPtr
-	Contexts        []*Context
+	DataMgr          *data.DataMgr
+	NoteContextMgr   *NoteContextMgr
+	BranchContextMgr *BranchContextMgr
+	ThreadContextMgr *ThreadContextMgr
 }
 
-// NewContextMgr creates a new context manager with all contexts initialized
-func NewContextMgr() *ContextMgr {
-	return &ContextMgr{
-		previousContext: None,
-		currentContext:  Default,
-		Contexts: []*Context{
-			{Name: Default, Notes: make([]*models.Note, 0), Cursor: 0, Order: CreateAt}, // Default context
-			{Name: Recent, Notes: make([]*models.Note, 0), Cursor: 0, Order: UpdateAt},  // Recent context
-			{Name: Search, Notes: make([]*models.Note, 0), Cursor: 0, Order: CreateAt},  // Search context
-		},
-	}
+// This function needs to be implemented when we take everything into account.
+func NewContextMgr() {}
+
+// RefreshThreadsContext should not take very long ? Is it really useful to separate it into many pieces ?
+// Wait, there is the cursor problem...Yes
+func (cm *ContextMgr) RefreshThreadsContext() {
+	// load in stuff from DataMgr.
+	threads := cm.DataMgr.GetThreads()
+	branches := cm.DataMgr.GetActiveBranchList()
+	notes := cm.DataMgr.GetActiveNoteList()
+
+	//refresh contexts
+	cm.NoteContextMgr.RefreshDefaultContext(notes)
+	cm.BranchContextMgr.RefreshDefaultContext(branches)
+	cm.ThreadContextMgr.RefreshDefaultContext(threads)
 }
 
-func (cm *ContextMgr) SwitchContext(c ContextPtr) {
-	// make sure they are different
-	if c != cm.currentContext {
-		cm.previousContext = cm.currentContext
-		cm.currentContext = c
-	}
+func (cm *ContextMgr) RefreshBranchesContext() {
+	branches := cm.DataMgr.GetActiveBranchList()
+	notes := cm.DataMgr.GetActiveNoteList()
+	cm.NoteContextMgr.RefreshDefaultContext(notes)
+	cm.BranchContextMgr.RefreshDefaultContext(branches)
 }
 
-func (cm *ContextMgr) GetCurrentNotes() []*models.Note {
-	return cm.Contexts[cm.currentContext].Notes
-}
-
-func (cm *ContextMgr) GetCurrentContext() ContextPtr {
-	return cm.currentContext
-}
-
-func (cm *ContextMgr) GetPreviousContext() ContextPtr {
-	return cm.previousContext
-}
-
-func (cm *ContextMgr) RefreshDefaultContext(notes []*models.Note) {
-	cm.Contexts[Default].Notes = notes
-}
-
-func (cm *ContextMgr) RefreshRecentContext() {
-	// we should fetch the newest ~ 20 notes from default context
-	notes := cm.Contexts[Default].Notes
-	// Create a copy to avoid modifying the original slice
-	notesCopy := make([]*models.Note, len(notes))
-	copy(notesCopy, notes)
-	//sort by UpdatedAt (most recent first)
-	sort.Slice(notesCopy, func(i, j int) bool {
-		return notesCopy[i].UpdatedAt.After(notesCopy[j].UpdatedAt)
-	})
-	// fetch top
-	recentCount := 20
-	if len(notesCopy) < recentCount {
-		recentCount = len(notesCopy)
-	}
-	cm.Contexts[Recent].Notes = notesCopy[:recentCount]
-}
-
-func (cm *ContextMgr) RefreshSearchContext(q string) {
-	// first, get the current note list
-	// I am not sure whether this is correct.
-	c := cm.currentContext
-	if cm.currentContext == Search {
-		c = cm.previousContext
-	}
-	notes := cm.Contexts[c].Notes
-
-	//loop through and search
-	if q == "" {
-		cm.Contexts[Search].Notes = notes
-		return
-	}
-	query := strings.ToLower(q)
-	filteredNotes := make([]*models.Note, 0)
-	for _, note := range notes {
-		if strings.Contains(strings.ToLower(note.Content), query) {
-			filteredNotes = append(filteredNotes, note)
-			continue
-		}
-		for _, topic := range note.Topics {
-			if strings.Contains(strings.ToLower(topic.Topic), query) {
-				filteredNotes = append(filteredNotes, note)
-				break
-			}
-		}
-	}
-	// Sort by CreatedAt to maintain chronological order
-	sort.Slice(filteredNotes, func(i, j int) bool {
-		return filteredNotes[i].CreatedAt.Before(filteredNotes[j].CreatedAt)
-	})
-	cm.Contexts[Search].Notes = filteredNotes
-}
-
-// GetCurrentCursor returns the cursor position in the current context
-func (cm *ContextMgr) GetCurrentCursor() uint {
-	return cm.Contexts[cm.currentContext].Cursor
-}
-
-// SetCurrentCursor sets the cursor position in the current context
-func (cm *ContextMgr) SetCurrentCursor(cursor uint) {
-	cm.Contexts[cm.currentContext].Cursor = cursor
-}
-
-// GetCurrentNote returns the note at the current cursor position, or nil if invalid
-func (cm *ContextMgr) GetCurrentNote() *models.Note {
-	notes := cm.GetCurrentNotes()
-	cursor := cm.GetCurrentCursor()
-	if len(notes) == 0 || int(cursor) >= len(notes) {
-		return nil
-	}
-	return notes[cursor]
-}
-
-// GetNoteCount returns the number of notes in the current context
-func (cm *ContextMgr) GetNoteCount() int {
-	return len(cm.GetCurrentNotes())
-}
-
-// AddNoteToDefault adds a note to the default context in chronological order
-func (cm *ContextMgr) AddNoteToDefault(note *models.Note) {
-	notes := cm.Contexts[Default].Notes
-	// Find the correct position to insert the note to maintain chronological order
-	insertPos := len(notes)
-	for i, n := range notes {
-		if n.CreatedAt.After(note.CreatedAt) {
-			insertPos = i
-			break
-		}
-	}
-	// Insert at the correct position
-	if insertPos == len(notes) {
-		cm.Contexts[Default].Notes = append(notes, note)
-	} else {
-		cm.Contexts[Default].Notes = append(notes[:insertPos], append([]*models.Note{note}, notes[insertPos:]...)...)
-	}
-}
-
-// RemoveNoteFromDefault removes a note from default context by ID
-func (cm *ContextMgr) RemoveNoteFromDefault(noteID uint) {
-	notes := cm.Contexts[Default].Notes
-	for i, note := range notes {
-		if note.ID == noteID {
-			cm.Contexts[Default].Notes = append(notes[:i], notes[i+1:]...)
-			break
-		}
-	}
-}
-
-// SortCurrentContext sorts the current context notes by CreatedAt (chronological order)
-func (cm *ContextMgr) SortCurrentContext() {
-	notes := cm.Contexts[cm.currentContext].Notes
-	order := cm.Contexts[cm.currentContext].Order
-
-	// well this is in place ! careful!
-	switch order {
-	case CreateAt:
-		sort.Slice(notes, func(i, j int) bool {
-			return notes[i].CreatedAt.Before(notes[j].CreatedAt)
-		})
-	case UpdateAt:
-		sort.Slice(notes, func(i, j int) bool {
-			return notes[i].UpdatedAt.After(notes[j].UpdatedAt)
-		})
-	default:
-		sort.Slice(notes, func(i, j int) bool {
-			return notes[i].CreatedAt.Before(notes[j].CreatedAt)
-		})
-	}
-}
-
-// only for data storage purposes. Do not use in coding.
-func (cm *ContextMgr) GetCursors() map[ContextPtr]uint {
-	return map[ContextPtr]uint{
-		Default: cm.Contexts[Default].Cursor,
-		Recent:  cm.Contexts[Recent].Cursor,
-		Search:  cm.Contexts[Search].Cursor,
-	}
-}
-
-func (cm *ContextMgr) SetCursors(m map[ContextPtr]uint) {
-	cm.Contexts[Default].Cursor = m[Default]
-	cm.Contexts[Recent].Cursor = m[Recent]
-	cm.Contexts[Search].Cursor = m[Search]
+func (cm *ContextMgr) RefreshNotesContext() {
+	notes := cm.DataMgr.GetActiveNoteList()
+	cm.NoteContextMgr.RefreshDefaultContext(notes)
 }

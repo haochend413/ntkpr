@@ -5,263 +5,260 @@ import (
 	"sync"
 	"time"
 
-	"github.com/haochend413/ntkpr/internal/app/context"
+	"github.com/haochend413/ntkpr/internal/app/data"
 	editstack "github.com/haochend413/ntkpr/internal/app/editStack"
 	"github.com/haochend413/ntkpr/internal/db"
 	"github.com/haochend413/ntkpr/internal/models"
+	"github.com/haochend413/ntkpr/state"
 )
 
-// App encapsulates application logic and state
+// App encapsulates application logic and states
+// Inside app we deal with how our local data, stored in contexts, interact with database.
+// In my opinion, we can just re-write the whole thing.
 type App struct {
-	db               *db.DB
-	NotesMap         map[uint]*models.Note
-	contextMgr       *context.ContextMgr
-	editMgr          *editstack.EditMgr
-	currentNote      *models.Note
-	nextNoteCreateID uint
-	Synced           bool
-	Topics           map[uint]*models.Topic
-	mutex            sync.Mutex
+	db                 *db.DB
+	dataMgr            *data.DataMgr
+	editMgr            *editstack.EditMgr
+	nextThreadCreateID uint
+	nextBranchCreateID uint
+	nextNoteCreateID   uint
+	Synced             bool
+	mutex              sync.Mutex
 }
 
-// NewApp creates a new application instance
-func NewApp(dbConn *db.DB) *App {
+// NewApp creates a new application instance and restore app states
+func NewApp(dbConn *db.DB, AppState *state.AppState) *App {
+
 	app := &App{
-		db:               dbConn,
-		NotesMap:         make(map[uint]*models.Note),
-		contextMgr:       context.NewContextMgr(),
-		editMgr:          editstack.NewEditMgr(),
-		Topics:           make(map[uint]*models.Topic),
-		nextNoteCreateID: 1, // Default starting ID if database is empty
-		Synced:           true,
+		db:                 dbConn,
+		dataMgr:            &data.DataMgr{},
+		editMgr:            editstack.NewEditMgr(),
+		nextThreadCreateID: 1,
+		nextBranchCreateID: 1,
+		nextNoteCreateID:   1,
+		Synced:             true,
 	}
 
 	app.loadData()
 	return app
 }
 
-// loadNotes loads notes from the database
-// This function also load all topics
+// GetDataMgr returns the data manager
+func (a *App) GetDataMgr() *data.DataMgr {
+	return a.dataMgr
+}
+
+// GetEditMap returns the current edit map
+func (a *App) GetEditMap() map[editstack.EditKey]*editstack.Edit {
+	return a.editMgr.EditMap
+}
+
+// loadData loads threads from the database and initializes data manager
 func (a *App) loadData() {
-	//fetch data from database;
-	notes, topics, err := a.db.SyncData(make(map[uint]*models.Note), make(map[uint]*editstack.Edit))
+	// fetch from db
+	_, threads, err := a.db.SyncData(
+		[]*models.Thread{},
+		make(map[editstack.EditKey]*editstack.Edit),
+	)
+
 	if err != nil {
 		log.Panic(err)
 	}
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	// fill in the variables
-	a.NotesMap = make(map[uint]*models.Note, len(notes))
-	a.Topics = make(map[uint]*models.Topic, len(topics))
 
-	// Initialize context manager with all notes
-	a.contextMgr.RefreshDefaultContext(notes)
+	a.dataMgr = data.NewDataMgr(threads)
 
-	// init recent
-	a.contextMgr.RefreshRecentContext()
-
-	for _, note := range notes {
-		a.NotesMap[note.ID] = note
-	}
-	for _, topic := range topics {
-		a.Topics[topic.ID] = topic
-	}
-
-	// Query the database for the maximum ID, including deleted notes
-	// var maxID uint
-	// if err := a.db.Conn.Table("notes").Select("MAX(id)").Row().Scan(&maxID); err != nil {
-	// 	maxID = 0
-	// }
-
-	// Set the next ID for note creation
+	// Set the next IDs for creation
 	a.nextNoteCreateID = a.db.GetCreateNoteID()
+	a.nextBranchCreateID = a.db.GetCreateBranchID()
+	a.nextThreadCreateID = a.db.GetCreateThreadID()
 }
 
-// SearchNotes searches the current list and populates search context
-func (a *App) SearchNotes(query string) {
+/*
+APIs to call, connecting context and database.
+*/
+
+func (a *App) CreateNewThread() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-
-	a.contextMgr.RefreshSearchContext(query)
-	a.contextMgr.SwitchContext(context.Search)
-}
-
-// SelectCurrentNote sets the current note based on table cursor
-// This one should be slow since it turns. Maybe consider using more space. We should do this at the start of the program.
-func (a *App) SelectCurrentNote(cursor int) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	//This might be wrong: 1. needs sort;
-	notes := a.contextMgr.GetCurrentNotes()
-	if len(notes) == 0 || cursor >= len(notes) {
-		a.currentNote = nil
+	thread := &models.Thread{Name: ""}
+	thread.CreatedAt = time.Now()
+	thread.UpdatedAt = time.Now()
+	thread.ID = a.nextThreadCreateID
+	a.nextThreadCreateID += 1
+	a.Synced = false
+	edit := &editstack.Edit{EditType: editstack.CreateThread, ID: thread.ID}
+	if err := a.editMgr.AddEdit(edit); err != nil {
+		log.Printf("Error adding Create edit: %v", err)
 		return
 	}
-	a.currentNote = notes[cursor]
-	a.contextMgr.SetCurrentCursor(uint(cursor))
+	a.dataMgr.AddThread(thread)
+}
+
+func (a *App) CreateNewBranch() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	thread := a.dataMgr.GetActiveThread()
+	if thread == nil {
+		log.Printf("Cannot create branch: no active thread")
+		return
+	}
+	branch := &models.Branch{Name: ""}
+	branch.CreatedAt = time.Now()
+	branch.UpdatedAt = time.Now()
+	branch.ID = a.nextBranchCreateID
+	branch.ThreadID = thread.ID
+	a.nextBranchCreateID += 1
+	a.Synced = false
+	edit := &editstack.Edit{EditType: editstack.CreateBranch, ID: branch.ID}
+	if err := a.editMgr.AddEdit(edit); err != nil {
+		log.Printf("Error adding Create edit: %v", err)
+		return
+	}
+	a.dataMgr.AddBranch(branch)
 }
 
 // CreateNewNote creates a new pending note
 func (a *App) CreateNewNote() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+	thread := a.dataMgr.GetActiveThread()
+	branch := a.dataMgr.GetActiveBranch()
+	if thread == nil {
+		log.Printf("Cannot create note: no active thread")
+		return
+	}
+	if branch == nil {
+		log.Printf("Cannot create note: no active branch")
+		return
+	}
 	note := &models.Note{Content: ""}
 	note.CreatedAt = time.Now()
 	note.UpdatedAt = time.Now()
 	note.ID = a.nextNoteCreateID
+	note.ThreadID = thread.ID
+	// note.Branches = []*models.Branch{branch}
 	a.nextNoteCreateID += 1
 	a.Synced = false
-	if err := a.editMgr.AddEdit(editstack.Create, note.ID); err != nil {
+
+	edit := &editstack.Edit{EditType: editstack.CreateNote, ID: note.ID}
+	if err := a.editMgr.AddEdit(edit); err != nil {
 		log.Printf("Error adding Create edit: %v", err)
 		return
 	}
-	a.NotesMap[note.ID] = note
-	a.contextMgr.AddNoteToDefault(note)
-	a.currentNote = note
-}
 
-func (a *App) UpdateRecentNotes() {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	a.contextMgr.RefreshRecentContext()
-}
-
-// update notes and cursor
-func (a *App) UpdateCurrentList(c context.ContextPtr, currentCursor uint) uint {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	c0 := a.contextMgr.GetCurrentContext()
-	a.contextMgr.Contexts[c0].Cursor = currentCursor
-	a.contextMgr.SwitchContext(c)
-	a.contextMgr.SortCurrentContext()
-	return a.contextMgr.Contexts[c].Cursor
-
-}
-
-// GetCurrentNotes returns the notes in the current context
-func (a *App) GetCurrentNotes() []*models.Note {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	return a.contextMgr.GetCurrentNotes()
-}
-
-// GetCurrentContext returns the current context
-func (a *App) GetCurrentContext() context.ContextPtr {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	return a.contextMgr.GetCurrentContext()
-}
-
-// GetEditStack returns the edit stack for UI access
-func (a *App) GetEditStack() []uint {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	return a.editMgr.EditStack
-}
-
-// GetEdit returns an edit by ID
-func (a *App) GetEdit(id uint) *editstack.Edit {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	return a.editMgr.EditMap[id]
-}
-
-// UndoDelete undoes the last delete operation
-func (a *App) UndoDelete() {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	// Find the most recent delete from the edit stack
-	var lastDeletedID uint
-	for i := len(a.editMgr.EditStack) - 1; i >= 0; i-- {
-		id := a.editMgr.EditStack[i]
-		if edit, exists := a.editMgr.EditMap[id]; exists && edit.EditType == editstack.Delete {
-			lastDeletedID = id
-			break
-		}
+	// Mark the branch as updated only if it already exists in the DB
+	// If the branch is pending (being created), the CreateBranch will handle the association
+	branchEdit, branchExists := a.editMgr.GetEdit(editstack.EntityBranch, branch.ID)
+	if !branchExists || branchEdit.EditType != editstack.CreateBranch {
+		// Branch either doesn't have pending edits or is not being created
+		// Safe to mark for update
+		updateEdit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
+		a.editMgr.AddEdit(updateEdit) // Ignore error - branch might already be marked
 	}
 
-	if lastDeletedID == 0 {
-		return
+	a.dataMgr.AddNote(note)
+}
+
+func (a *App) GetThreadList() []*models.Thread {
+	if a == nil {
+		log.Panic("null app")
 	}
+	return a.dataMgr.GetThreads()
+}
 
-	deletedNote, exists := a.NotesMap[lastDeletedID]
-	if !exists {
-		return
+func (a *App) GetActiveBranchList() []*models.Branch {
+	if a == nil {
+		log.Panic("null app")
 	}
-
-	// Remove the delete edit
-	a.editMgr.RemoveEdit(lastDeletedID)
-
-	// Add back to default context
-	a.contextMgr.AddNoteToDefault(deletedNote)
-	a.Synced = false
+	return a.dataMgr.GetActiveBranchList()
 }
 
-// only for data storage purposes. Do not use in coding.
-func (a *App) GetCursors() map[context.ContextPtr]uint {
-	return a.contextMgr.GetCursors()
-}
-func (a *App) SetCursors(m map[context.ContextPtr]uint) {
-	a.contextMgr.SetCursors(m)
+func (a *App) GetActiveNoteList() []*models.Note {
+	if a == nil {
+		log.Panic("null app")
+	}
+	return a.dataMgr.GetActiveNoteList()
 }
 
+// // GetEditStack returns the edit stack for UI access
+// func (a *App) GetEditMgr() *editstack.EditMgr {
+// 	return a.editMgr
+// }
+
+/*
+This can be implemented later.
+*/
+
+// // UndoDelete undoes the last delete operation
+// func (a *App) UndoDelete() {
+// 	a.mutex.Lock()
+// 	defer a.mutex.Unlock()
+
+// 	currentBranch := a.branchContextMgr.GetCurrentBranch()
+// 	if currentBranch == nil {
+// 		log.Printf("No current branch selected")
+// 		return
+// 	}
+
+// 	// Find the most recent delete from the edit stack
+// 	var lastDeleteEdit *editstack.Edit
+// 	for i := len(a.editMgr.EditStack) - 1; i >= 0; i-- {
+// 		edit := a.editMgr.EditStack[i]
+// 		if edit.EditType == editstack.Delete {
+// 			lastDeleteEdit = edit
+// 			break
+// 		}
+// 	}
+
+// 	if lastDeleteEdit == nil {
+// 		return
+// 	}
+
+// 	deletedNote, exists := currentBranch.Notes[lastDeleteEdit.ID]
+// 	if !exists {
+// 		return
+// 	}
+
+// 	// Remove the delete edit
+// 	a.editMgr.RemoveEdit(lastDeleteEdit.ID)
+
+// 	// Add back to default context
+// 	a.noteContextMgr.AddNoteToDefault(deletedNote)
+// 	a.Synced = false
+// }
+
+// SyncWithDatabase syncs the current state with the database
 func (a *App) SyncWithDatabase() {
 	a.mutex.Lock()
-	// Make a copy of the notes map and editMap
-	notesMapCopy := make(map[uint]*models.Note, len(a.NotesMap))
-	for id, note := range a.NotesMap {
-		notesMapCopy[id] = note
+	defer a.mutex.Unlock()
+
+	// Get threads from data manager and copy edit map
+	threads := a.dataMgr.GetThreads()
+	editMapCopy := make(map[editstack.EditKey]*editstack.Edit)
+	for k, v := range a.editMgr.EditMap {
+		editMapCopy[k] = v
 	}
-	editMapCopy := make(map[uint]*editstack.Edit, len(a.editMgr.EditMap))
-	for id, edit := range a.editMgr.EditMap {
-		editMapCopy[id] = edit
-	}
-	a.mutex.Unlock()
-	// Sync with the database using the editMap directly
-	updatedNotes, updatedTopics, err := a.db.SyncData(notesMapCopy, editMapCopy)
+
+	// Sync with the database
+	_, updatedThreads, err := a.db.SyncData(threads, editMapCopy)
+
 	if err != nil {
 		log.Printf("Error syncing with database: %v", err)
 		return
 	}
 
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	tc := a.dataMgr.GetActiveThreadPtr()
+	bc := a.dataMgr.GetActiveBranchPtr()
+	nc := a.dataMgr.GetActiveNotePtr()
 
-	// Update in-memory state with the fresh data from database
-	a.contextMgr.RefreshDefaultContext(updatedNotes)
-	a.NotesMap = make(map[uint]*models.Note, len(updatedNotes))
-	a.Topics = make(map[uint]*models.Topic, len(updatedTopics))
+	// Refresh data manager with updated threads
+	a.dataMgr.RefreshData(updatedThreads, &tc, &bc, &nc)
 
-	// Find max ID for next note creation
-	maxID := uint(0)
-	for _, note := range updatedNotes {
-		a.NotesMap[note.ID] = note
-		if note.ID > maxID {
-			maxID = note.ID
-		}
-	}
-
-	// Update topics
-	for _, topic := range updatedTopics {
-		a.Topics[topic.ID] = topic
-	}
-
-	// Set next ID and clear edit manager
-	a.nextNoteCreateID = maxID + 1
+	// Get next IDs from database (includes soft-deleted records)
+	// This ensures we never reuse an ID that exists in the DB
+	a.nextNoteCreateID = a.db.GetCreateNoteID()
+	a.nextBranchCreateID = a.db.GetCreateBranchID()
+	a.nextThreadCreateID = a.db.GetCreateThreadID()
 	a.editMgr.Clear()
 	a.Synced = true
-
-	// If we had a current note, try to find it in the updated notes
-	if a.currentNote != nil {
-		currentID := a.currentNote.ID
-		if note, exists := a.NotesMap[currentID]; exists {
-			a.currentNote = note
-		} else {
-			// If current note was deleted, select the first note or nil
-			a.currentNote = a.contextMgr.GetCurrentNote()
-		}
-	}
 }

@@ -9,113 +9,213 @@ import (
 	"github.com/haochend413/ntkpr/internal/models"
 )
 
-// CurrentNoteContent returns the content of the current note
-func (a *App) CurrentNoteContent() string {
+// current_note.go provides a controlled interface for accessing and modifying
+// the currently selected note, with proper edit tracking and synchronization.
+
+// =============================================================================
+// Helper: Get current note with safety checks
+// =============================================================================
+
+func (a *App) getCurrentNote() *models.Note {
+	if a.dataMgr == nil {
+		log.Fatal("Critical error: dataMgr is nil - app not properly initialized")
+	}
+	return a.dataMgr.GetActiveNote()
+}
+
+// =============================================================================
+// Getters - Read-only access to current note properties
+// =============================================================================
+
+// GetCurrentNoteContent returns the content of the current note, or empty string if none selected
+func (a *App) GetCurrentNoteContent() string {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.currentNote == nil {
+
+	note := a.getCurrentNote()
+	if note == nil {
 		return ""
 	}
-	return a.currentNote.Content
+	return note.Content
 }
 
-// CurrentNoteTopics returns the topics of the current note
-func (a *App) CurrentNoteTopics() []*models.Topic {
+// GetCurrentNoteID returns the ID of the current note, or 0 if none selected
+func (a *App) GetCurrentNoteID() uint {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.currentNote == nil {
-		return nil
-	}
-	return a.currentNote.Topics
-}
 
-// CurrentNoteID returns the ID of the current note or -1
-func (a *App) CurrentNoteID() int {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	if a.currentNote == nil {
-		return -1
-	}
-	return int(a.currentNote.ID)
-}
-
-func (a *App) CurrentNoteLastUpdate() time.Time {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	if a.currentNote == nil {
-		return time.Time{}
-	}
-	return a.currentNote.UpdatedAt
-}
-
-func (a *App) CurrentNoteFrequency() int {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	if a.currentNote == nil {
+	note := a.getCurrentNote()
+	if note == nil {
 		return 0
 	}
-	return a.currentNote.Frequency
+	return note.ID
+}
+
+// GetCurrentNoteTopics returns a copy of the current note's topics to prevent external mutation
+func (a *App) GetCurrentNoteTopics() []*models.Topic {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	note := a.getCurrentNote()
+	if note == nil {
+		return nil
+	}
+
+	// Return a copy to prevent external mutation
+	topics := make([]*models.Topic, len(note.Topics))
+	copy(topics, note.Topics)
+	return topics
+}
+
+// GetCurrentNoteHighlight returns whether the current note is highlighted
+func (a *App) GetCurrentNoteHighlight() bool {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	note := a.getCurrentNote()
+	if note == nil {
+		return false
+	}
+	return note.Highlight
+}
+
+// GetCurrentNotePrivate returns whether the current note is private
+func (a *App) GetCurrentNotePrivate() bool {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	note := a.getCurrentNote()
+	if note == nil {
+		return false
+	}
+	return note.Private
+}
+
+// GetCurrentNoteFrequency returns the edit count of the current note
+func (a *App) GetCurrentNoteFrequency() int {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	note := a.getCurrentNote()
+	if note == nil {
+		return 0
+	}
+	return note.Frequency
+}
+
+// GetCurrentNoteUpdatedAt returns when the current note was last modified
+func (a *App) GetCurrentNoteUpdatedAt() time.Time {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	note := a.getCurrentNote()
+	if note == nil {
+		return time.Time{}
+	}
+	return note.UpdatedAt
+}
+
+// GetCurrentNoteCreatedAt returns when the current note was created
+func (a *App) GetCurrentNoteCreatedAt() time.Time {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	note := a.getCurrentNote()
+	if note == nil {
+		return time.Time{}
+	}
+	return note.CreatedAt
 }
 
 // HasCurrentNote checks if a note is currently selected
 func (a *App) HasCurrentNote() bool {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	return a.currentNote != nil
+
+	return a.getCurrentNote() != nil
 }
 
-// SaveCurrentNote updates the current note content and marks it pending
-func (a *App) SaveCurrentNote(content string) {
+// =============================================================================
+// Setters - Controlled modification with edit tracking
+// =============================================================================
+
+// SetCurrentNoteContent updates the current note's content with edit tracking
+func (a *App) SetCurrentNoteContent(content string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.currentNote == nil {
+
+	note := a.getCurrentNote()
+	if note == nil {
 		return
 	}
-	if a.currentNote.Content == content {
+
+	// No-op if content hasn't changed
+	if note.Content == content {
 		return
 	}
-	a.currentNote.Content = content
-	a.currentNote.Frequency += 1
-	a.currentNote.UpdatedAt = time.Now()
+
+	note.Content = content
+	note.Frequency++
+	note.UpdatedAt = time.Now()
 	a.Synced = false
-	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
-		log.Printf("Error adding Update edit: %v", err)
+
+	edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
+	if err := a.editMgr.AddEdit(edit); err != nil {
+		log.Printf("Error tracking note update: %v", err)
 	}
 }
 
+// ToggleCurrentNoteHighlight toggles the highlight status of the current note
 func (a *App) ToggleCurrentNoteHighlight() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.currentNote == nil {
+
+	note := a.getCurrentNote()
+	if note == nil {
 		return
 	}
-	a.currentNote.Highlight = !a.currentNote.Highlight
-	a.currentNote.UpdatedAt = time.Now() // I think this is kinda required since we are not always syncing with DB. Maybe do a db state simulation.
+
+	note.Highlight = !note.Highlight
+	note.UpdatedAt = time.Now()
 	a.Synced = false
-	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil { // note-wise : append to editMgr
-		log.Printf("Error adding Update edit: %v", err)
+
+	edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
+	if err := a.editMgr.AddEdit(edit); err != nil {
+		log.Printf("Error tracking note update: %v", err)
 	}
 }
 
+// ToggleCurrentNotePrivate toggles the private status of the current note
 func (a *App) ToggleCurrentNotePrivate() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.currentNote == nil {
+
+	note := a.getCurrentNote()
+	if note == nil {
 		return
 	}
-	a.currentNote.Private = !a.currentNote.Private
-	a.currentNote.UpdatedAt = time.Now() // I think this is kinda required since we are not always syncing with DB. Maybe do a db state simulation.
+
+	note.Private = !note.Private
+	note.UpdatedAt = time.Now()
 	a.Synced = false
-	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil { // note-wise : append to editMgr
-		log.Printf("Error adding Update edit: %v", err)
+
+	edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
+	if err := a.editMgr.AddEdit(edit); err != nil {
+		log.Printf("Error tracking note update: %v", err)
 	}
 }
 
-// AddTopicsToCurrentNote parses a comma-separated list and appends unique topics
+// =============================================================================
+// Topic Management
+// =============================================================================
+
+// AddTopicsToCurrentNote parses a comma-separated list and adds unique topics to the current note
 func (a *App) AddTopicsToCurrentNote(topicsText string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.currentNote == nil {
+
+	note := a.getCurrentNote()
+	if note == nil {
 		return
 	}
 
@@ -123,99 +223,118 @@ func (a *App) AddTopicsToCurrentNote(topicsText string) {
 	if topicsText == "" {
 		return
 	}
+
 	changed := false
 	topicNames := strings.Split(topicsText, ",")
+
 	for _, topicName := range topicNames {
 		topicName = strings.TrimSpace(topicName)
 		if topicName == "" {
 			continue
 		}
-		topic := &models.Topic{Topic: topicName}
+
+		// Check if topic already exists
 		exists := false
-		for _, existing := range a.currentNote.Topics {
-			if existing.Topic == topic.Topic {
+		for _, existing := range note.Topics {
+			if existing.Topic == topicName {
 				exists = true
 				break
 			}
 		}
 
 		if !exists {
-			a.currentNote.Topics = append(a.currentNote.Topics, topic)
+			topic := &models.Topic{Topic: topicName}
+			note.Topics = append(note.Topics, topic)
 			changed = true
 		}
 	}
+
 	if changed {
-		a.currentNote.UpdatedAt = time.Now()
+		note.UpdatedAt = time.Now()
 		a.Synced = false
-		if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
-			log.Printf("Error adding Update edit: %v", err)
+
+		edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
+		if err := a.editMgr.AddEdit(edit); err != nil {
+			log.Printf("Error tracking note update: %v", err)
 		}
 	}
 }
 
-// RemoveTopicFromCurrentNote removes a topic from the current note
+// RemoveTopicFromCurrentNote removes a specific topic from the current note
 func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.currentNote == nil {
+
+	note := a.getCurrentNote()
+	if note == nil {
 		return
 	}
 
-	var newTopics []*models.Topic
-	for _, topic := range a.currentNote.Topics {
+	newTopics := make([]*models.Topic, 0, len(note.Topics))
+	for _, topic := range note.Topics {
 		if topic.Topic != topicToRemove {
 			newTopics = append(newTopics, topic)
 		}
 	}
-	if len(newTopics) == len(a.currentNote.Topics) {
+
+	// No-op if nothing was removed
+	if len(newTopics) == len(note.Topics) {
 		return
 	}
-	a.currentNote.Topics = newTopics
-	a.currentNote.UpdatedAt = time.Now()
+
+	note.Topics = newTopics
+	note.UpdatedAt = time.Now()
 	a.Synced = false
-	if err := a.editMgr.AddEdit(editstack.Update, a.currentNote.ID); err != nil {
-		log.Printf("Error adding Update edit: %v", err)
+
+	edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
+	if err := a.editMgr.AddEdit(edit); err != nil {
+		log.Printf("Error tracking note update: %v", err)
 	}
 }
 
-// DeleteCurrentNote deletes the current note from the active list and marks for deletion if needed
-func (a *App) DeleteCurrentNote(cursor uint) {
+// DeleteCurrentNote removes the current note from the current branch and tracks the deletion
+func (a *App) DeleteCurrentNote() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	if a.currentNote == nil {
+	note := a.getCurrentNote()
+	if note == nil {
 		return
 	}
 
-	noteID := a.currentNote.ID
+	noteID := note.ID
+	branch := a.getCurrentBranch()
 
-	// Check if this note is in the Create list (newly created, not yet synced)
-	if edit, exists := a.editMgr.EditMap[noteID]; exists && edit.EditType == editstack.Create {
-		// Note was created but not synced - just remove it entirely
-		a.editMgr.RemoveEdit(noteID)
-		delete(a.NotesMap, noteID)
+	edit, exists := a.editMgr.GetEdit(editstack.EntityNote, noteID)
+	if exists && edit.EditType == editstack.CreateNote {
+		a.editMgr.RemoveEdit(editstack.EntityNote, noteID)
 	} else if noteID != 0 {
-		// Note exists in DB - mark for deletion
-		if err := a.editMgr.AddEdit(editstack.Delete, noteID); err != nil {
-			log.Printf("Error adding Delete edit: %v", err)
+		deleteEdit := &editstack.Edit{ID: noteID, EditType: editstack.DeleteNote}
+		if err := a.editMgr.AddEdit(deleteEdit); err != nil {
+			log.Printf("Error tracking note deletion: %v", err)
 			return
 		}
 	}
 
-	// Remove from default context (and it will be reflected in other contexts)
-	a.contextMgr.RemoveNoteFromDefault(noteID)
+	// Mark branch as updated to sync the association change
+	// Only if branch is not pending (not being created)
+	if branch != nil && branch.ID != 0 {
+		branchEdit, branchExists := a.editMgr.GetEdit(editstack.EntityBranch, branch.ID)
+		if !branchExists || branchEdit.EditType != editstack.CreateBranch {
+			// Branch is not pending creation, safe to mark for update
+			updateEdit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
+			a.editMgr.AddEdit(updateEdit) // Ignore error - branch might already be marked
+		}
+	}
+
+	// Find the index of the note in the active note list
+	notes := a.dataMgr.GetActiveNoteList()
+	for i, n := range notes {
+		if n.ID == noteID {
+			a.dataMgr.RemoveNote(i)
+			break
+		}
+	}
+
 	a.Synced = false
-
-	// adjust cursor
-	notes := a.contextMgr.GetCurrentNotes()
-	if len(notes) == 0 {
-		a.currentNote = nil
-		return
-	}
-
-	if int(cursor) >= len(notes) {
-		cursor = uint(len(notes) - 1)
-	}
-	a.currentNote = notes[cursor]
-	a.contextMgr.SetCurrentCursor(cursor)
 }

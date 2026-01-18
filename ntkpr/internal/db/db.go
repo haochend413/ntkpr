@@ -23,7 +23,7 @@ func NewDB(path string) (*DB, error) {
 		// Config file doesn't exist, create directory and config file with defaults
 		dir := filepath.Dir(path)
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating database directory", err)
+			fmt.Fprintf(os.Stderr, "Error creating database directory: %v", err)
 			return nil, err
 		}
 
@@ -34,7 +34,7 @@ func NewDB(path string) (*DB, error) {
 		return nil, err
 	}
 	// Migrate schema
-	err = conn.AutoMigrate(&models.Note{}, &models.Topic{}, &models.DailyTask{})
+	err = conn.AutoMigrate(&models.Note{}, &models.Topic{}, &models.DailyTask{}, &models.Thread{}, &models.Branch{})
 	if err != nil {
 		return nil, err
 	}

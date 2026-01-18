@@ -11,26 +11,71 @@ import (
 	"github.com/haochend413/ntkpr/internal/app/context"
 )
 
+type UIState struct {
+	YOffsets_Thread map[context.ContextPtr]int `json:"yOffsets_thread"` // viewport scroll offsets per context
+	YOffsets_Branch map[context.ContextPtr]int `json:"yOffsets_branch"`
+	YOffsets_Note   map[context.ContextPtr]int `json:"yOffsets_note"`
+}
+
+type AppState struct {
+	LastThreadContext context.ContextPtr          `json:"lastThreadContext"` // previous context
+	LastBranchContext context.ContextPtr          `json:"lastBranchContext"`
+	LastNoteContext   context.ContextPtr          `json:"lastNoteContext"`
+	ThreadCursors     map[context.ContextPtr]uint `json:"thread_cursors"` // cursor positions per context
+	BranchCursors     map[context.ContextPtr]uint `json:"branch_cursors"`
+	NoteCursors       map[context.ContextPtr]uint `json:"note_cursors"`
+}
+
 type State struct {
-	LastContext context.ContextPtr `json:"lastContext"` // previous context
-	// LastCursor  int                `json:"lastCursor"`  // previous current note
-	Cursors  map[context.ContextPtr](uint) `json:"Cursors"`
-	YOffsets map[context.ContextPtr](int)  `json:"YOffsets"` // viewport scroll offsets per context
+	UI  UIState  `json:"ui"`
+	App AppState `json:"app"`
 }
 
 // use a function to return different instances. Trick.
+// This is...sort of wrong ?
+// Each thread, each branch, each context should have a single cursor. There seems to be a lot of things to store. Can we simplify that ?
+// Now that there are many things...
+
+// OK, lets ignore cursor in state for now.
 func DefaultState() *State {
 	return &State{
-		LastContext: context.Default,
-		Cursors: map[context.ContextPtr](uint){
-			context.Default: 0,
-			context.Recent:  0,
-			context.Search:  0,
+		UI: UIState{
+
+			YOffsets_Thread: map[context.ContextPtr]int{
+				context.Default: 0,
+				context.Recent:  0,
+				context.Search:  0,
+			},
+			YOffsets_Branch: map[context.ContextPtr]int{
+				context.Default: 0,
+				context.Recent:  0,
+				context.Search:  0,
+			},
+			YOffsets_Note: map[context.ContextPtr]int{
+				context.Default: 0,
+				context.Recent:  0,
+				context.Search:  0,
+			},
 		},
-		YOffsets: map[context.ContextPtr](int){
-			context.Default: 0,
-			context.Recent:  0,
-			context.Search:  0,
+		App: AppState{
+			LastThreadContext: context.Default,
+			LastBranchContext: context.Default,
+			LastNoteContext:   context.Default,
+			ThreadCursors: map[context.ContextPtr]uint{
+				context.Default: 0,
+				context.Recent:  0,
+				context.Search:  0,
+			},
+			BranchCursors: map[context.ContextPtr]uint{
+				context.Default: 0,
+				context.Recent:  0,
+				context.Search:  0,
+			},
+			NoteCursors: map[context.ContextPtr]uint{
+				context.Default: 0,
+				context.Recent:  0,
+				context.Search:  0,
+			},
 		},
 	}
 }

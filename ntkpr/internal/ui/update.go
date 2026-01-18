@@ -4,80 +4,62 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/haochend413/bubbles/key"
 	"github.com/haochend413/bubbles/table"
-	"github.com/haochend413/ntkpr/internal/app/context"
-	"github.com/haochend413/ntkpr/state"
 )
 
 // Global keys that work in any mode
 type globalKeyMap struct {
-	QuitApp       key.Binding
-	SwitchContext key.Binding
+	QuitApp           key.Binding
+	SwitchFocusWindow key.Binding
+	SyncWithDB        key.Binding
+	GetHelp           key.Binding
 }
 
 var globalKeys = globalKeyMap{
-	QuitApp:       key.NewBinding(key.WithKeys("ctrl+c")),
-	SwitchContext: key.NewBinding(key.WithKeys("tab")),
+	QuitApp:           key.NewBinding(key.WithKeys("ctrl+c")),
+	SwitchFocusWindow: key.NewBinding(key.WithKeys("tab")),
+	SyncWithDB:        key.NewBinding(key.WithKeys("ctrl+q")),
+	GetHelp:           key.NewBinding(key.WithKeys("H")),
 }
 
-// Table focus keys
+// Table focus keys (for threads, branches, notes tables)
 type tableKeyMap struct {
-	GoToTextArea         key.Binding
-	CreateNewNote        key.Binding
-	SyncWithDB           key.Binding
-	Retract              key.Binding
-	DeleteNote           key.Binding
-	SwitchCtxSearch      key.Binding
-	SwitchCtxRecent      key.Binding
-	SwitchCtxDefault     key.Binding
-	HighlightCurrentNote key.Binding
-	PrivatizeCurrentNote key.Binding
+	Select        key.Binding // Enter to drill down / select
+	Back          key.Binding // Escape to go back up
+	CreateNew     key.Binding // Create new item in current table
+	Delete        key.Binding // Delete current item
+	Highlight     key.Binding // Toggle highlight
+	Privatize     key.Binding // Toggle private
+	GoToEdit      key.Binding // Go directly to edit mode
+	ViewChangelog key.Binding // View changelog
+	UpTable       key.Binding // Move to table above (non-circular)
+	DownTable     key.Binding // Move to table below (non-circular)
 }
 
 var tableKeys = tableKeyMap{
-	GoToTextArea:         key.NewBinding(key.WithKeys("enter")),
-	CreateNewNote:        key.NewBinding(key.WithKeys("ctrl+n", "n")),
-	SyncWithDB:           key.NewBinding(key.WithKeys("ctrl+q")),
-	Retract:              key.NewBinding(key.WithKeys("ctrl+z")),
-	DeleteNote:           key.NewBinding(key.WithKeys("ctrl+d")),
-	HighlightCurrentNote: key.NewBinding((key.WithKeys("ctrl+h"))),
-	PrivatizeCurrentNote: key.NewBinding(key.WithKeys("ctrl+p")),
-	SwitchCtxSearch:      key.NewBinding(key.WithKeys("S")),
-	SwitchCtxRecent:      key.NewBinding(key.WithKeys("R")),
-	SwitchCtxDefault:     key.NewBinding(key.WithKeys("A")),
-}
-
-// Search focus keys
-type searchKeyMap struct {
-	Enter key.Binding
-}
-
-var searchKeys = searchKeyMap{
-	Enter: key.NewBinding(key.WithKeys("enter")),
+	Select:        key.NewBinding(key.WithKeys("enter")),
+	Back:          key.NewBinding(key.WithKeys("esc")),
+	CreateNew:     key.NewBinding(key.WithKeys("ctrl+n", "n")),
+	Delete:        key.NewBinding(key.WithKeys("ctrl+d")),
+	Highlight:     key.NewBinding(key.WithKeys("ctrl+h")),
+	Privatize:     key.NewBinding(key.WithKeys("ctrl+p")),
+	GoToEdit:      key.NewBinding(key.WithKeys("e", "ctrl+e")),
+	ViewChangelog: key.NewBinding(key.WithKeys("ctrl+l")),
+	UpTable:       key.NewBinding(key.WithKeys("q")),
+	DownTable:     key.NewBinding(key.WithKeys("w")),
 }
 
 // Edit focus keys
 type editKeyMap struct {
-	SaveCurrentNote key.Binding
+	SaveAndReturn key.Binding
+	Cancel        key.Binding
 }
 
 var editKeys = editKeyMap{
-	SaveCurrentNote: key.NewBinding(key.WithKeys("ctrl+s")),
-}
-
-// Topics focus keys
-type topicsKeyMap struct {
-	AddTopic    key.Binding
-	DeleteTopic key.Binding
-}
-
-var topicsKeys = topicsKeyMap{
-	AddTopic:    key.NewBinding(key.WithKeys("enter")),
-	DeleteTopic: key.NewBinding(key.WithKeys("ctrl+d")),
+	SaveAndReturn: key.NewBinding(key.WithKeys("ctrl+s")),
+	Cancel:        key.NewBinding(key.WithKeys("esc")),
 }
 
 // Update handles UI events and updates the model
-// On startup settings ? Yeah this is definitely important.
-
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -86,357 +68,464 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.ready = true // I forgot what this is for.
+		m.ready = true
 		m.statusBar.SetWidth(m.width)
 
-		borderOverhead := 8 // 4 chars per box (2 borders + 2 padding) * 2 boxes
+		borderOverhead := 8
 		availableWidth := m.width - borderOverhead
 
-		// Split: 40% for table (left), 60% for edit (right)
+		// Split: 40% for tables (left), 60% for edit (right)
 		tableContentWidth := int(float64(availableWidth) * 0.4)
 		editContentWidth := availableWidth - tableContentWidth
 
-		// Table actual width includes its content
 		tableWidth := tableContentWidth
 		editWidth := editContentWidth
 
-		// Distribute column widths to use full available width
+		// Distribute column widths for tables
 		idWidth := max(4, int(float64(tableWidth)*0.08))
 		timeWidth := max(8, int(float64(tableWidth)*0.22))
 		flagWidth := max(4, int(float64(tableWidth)*0.10))
+		nameWidth := max(10, int(float64(tableWidth)*0.48))
 		contentWidth := max(10, int(float64(tableWidth)*0.48))
-		topicsWidth := max(5, int(float64(tableWidth)*0.15))
 
-		columns := []table.Column{
+		// Separate column definitions for threads, branches (Name), and notes (Content)
+		threadColumns := []table.Column{
+			{Title: "ID", Width: idWidth},
+			{Title: "Time", Width: timeWidth},
+			{Title: "Name", Width: nameWidth},
+			{Title: "Flags", Width: flagWidth},
+		}
+
+		branchColumns := []table.Column{
+			{Title: "ID", Width: idWidth},
+			{Title: "Time", Width: timeWidth},
+			{Title: "Name", Width: nameWidth},
+			{Title: "Flags", Width: flagWidth},
+		}
+
+		noteColumns := []table.Column{
 			{Title: "ID", Width: idWidth},
 			{Title: "Time", Width: timeWidth},
 			{Title: "Content", Width: contentWidth},
 			{Title: "Flags", Width: flagWidth},
-			{Title: "Topics", Width: topicsWidth},
 		}
-		m.table.SetColumns(columns)
-		m.table.SetWidth(tableWidth)
+
+		// Set columns and width for each table with appropriate column types
+		m.threadsTable.SetColumns(threadColumns)
+		m.threadsTable.SetWidth(tableWidth)
+		m.branchesTable.SetColumns(branchColumns)
+		m.branchesTable.SetWidth(tableWidth)
+		m.notesTable.SetColumns(noteColumns)
+		m.notesTable.SetWidth(tableWidth)
 
 		// Height calculations
-		// Total height budget: m.height
-		// Used by: main content + help (3 lines) + status bar (1 line)
-		// Help has Padding(1, 0, 0, 2) so it's 2 lines total
-		// Status bar is 1 line
-		// Total reserved for help + status = 3 lines
-		mainContentHeight := m.height - 3
+		mainContentHeight := m.height - 5 // Reserve for help + status bar
 
-		// Table height depends on whether search is visible
-		var tableHeight int
-		if m.focus == FocusSearch {
-			// Search box takes ~3 lines (border + padding + input)
-			// Remaining space for table
-			tableHeight = max(5, mainContentHeight-6)
-		} else {
-			// Full height for table (minus some margin)
-			tableHeight = max(5, mainContentHeight-3)
+		// Each table gets 1/3 of the left side height
+		tableHeight := max(3, (mainContentHeight-3)/10) // -6 for borders/margins
+		m.threadsTable.SetHeight(tableHeight * 1)
+		m.branchesTable.SetHeight(tableHeight * 2)
+		m.notesTable.SetHeight(tableHeight * 8)
+
+		// Textarea takes most of right side
+		m.textArea.SetWidth(editWidth)
+		textareaHeight := max(5, int(float64(mainContentHeight)*0.7))
+		m.textArea.SetHeight(textareaHeight)
+
+		// Changelog table (below textarea)
+		changeColumns := []table.Column{
+			{Title: "Type", Width: max(6, int(float64(editWidth)*0.15))},
+			{Title: "ID", Width: max(4, int(float64(editWidth)*0.10))},
+			{Title: "Time", Width: max(12, int(float64(editWidth)*0.25))},
+			{Title: "Description", Width: max(15, int(float64(editWidth)*0.40))},
 		}
-		m.table.SetHeight(tableHeight)
-
-		// Textarea dimensions
-		// Textarea should fill most of the right side
-		m.textarea.SetWidth(editWidth)
-		// Reserve space for topics section below
-		textareaHeight := max(5, int(float64(mainContentHeight)*0.65))
-		m.textarea.SetHeight(textareaHeight)
-
-		// Search input width matches table width
-		m.searchInput.Width = tableWidth - 3 // This magically fits.
-
-		// Topic input width matches edit width
-		m.topicInput.Width = editWidth
-
-		// Topics table columns and dimensions
-		topicColumns := []table.Column{
-			{Title: "Topic", Width: max(10, editWidth-2)},
-		}
-		m.topicsTable.SetColumns(topicColumns)
-		m.topicsTable.SetWidth(editWidth)
-		// Topics table height: use remaining space
-		topicsTableHeight := max(3, int(float64(mainContentHeight)*0.12))
-		m.topicsTable.SetHeight(topicsTableHeight)
+		m.changeTable.SetColumns(changeColumns)
+		m.changeTable.SetWidth(editWidth)
+		changeTableHeight := max(3, mainContentHeight-textareaHeight-3)
+		m.changeTable.SetHeight(changeTableHeight)
 
 	case tea.KeyMsg:
 		// Handle global keys first
 		switch {
 		case key.Matches(msg, globalKeys.QuitApp):
-			s := m.CollectState()
-			state.SaveState(m.Config.StateFilePath, s) // on quit, save state
-			m.app.SaveCurrentNote(m.textarea.Value())
 			m.app.SyncWithDatabase()
 			return m, tea.Quit
-		case key.Matches(msg, globalKeys.SwitchContext):
+
+		case key.Matches(msg, globalKeys.SyncWithDB):
+			m.app.SyncWithDatabase()
+			m.updateThreadsTable()
+			m.updateBranchesTable()
+			m.updateNotesTable()
+			m.updateChangelogTable()
+			m.updateStatusBar()
+			return m, nil
+
+		case key.Matches(msg, globalKeys.SwitchFocusWindow):
+			// Tab cycles through three tables only: Threads -> Branches -> Notes -> Threads
+			// Edit and Changelog can only be accessed via specific keys (e/ctrl+e and ctrl+l)
+			if m.focus == FocusEdit {
+				// If in edit, tab saves and returns to previous table
+				switch m.previousFocus {
+				case FocusThreads:
+					m.app.SetCurrentThreadSummary(m.textArea.Value())
+					m.updateThreadsTable()
+				case FocusBranches:
+					m.app.SetCurrentBranchSummary(m.textArea.Value())
+					m.updateBranchesTable()
+				case FocusNotes:
+					m.app.SetCurrentNoteContent(m.textArea.Value())
+					m.updateNotesTable()
+				}
+				m.focus = m.previousFocus
+				m.textArea.Blur()
+				m.focusCurrentTable()
+				m.updateStatusBar()
+				return m, nil
+			}
+
+			if m.focus == FocusChangelog {
+				// If in changelog, tab does nothing
+				return m, nil
+			}
+
+			m.blurAllTables()
+
 			switch m.focus {
-			case FocusSearch:
-				m.focus = FocusTable
-				m.searchInput.SetValue("")
-				// Restore full table height
-				mainContentHeight := m.height - 3
-				m.table.SetHeight(max(5, mainContentHeight-3))
-				m.table.Focus()
-				m.searchInput.Blur()
-				m.topicInput.Blur()
-				m.topicsTable.Blur()
-			case FocusTable:
-				m.focus = FocusEdit
-				m.table.Blur()
-				m.textarea.Focus()
-				m.topicInput.Blur()
-				m.topicsTable.Blur()
-			case FocusEdit:
-				m.app.SaveCurrentNote(m.textarea.Value())
-				m.updateTable(context.Default)
-				m.focus = FocusTopics
-				m.textarea.Blur()
-				m.topicInput.Focus()
-				m.topicsTable.Focus()
-			case FocusTopics:
-				m.focus = FocusTable
-				m.topicInput.Blur()
-				m.topicsTable.Blur()
-				m.table.Focus()
+			case FocusThreads:
+				m.focus = FocusBranches
+				m.branchesTable.Focus()
+				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+			case FocusBranches:
+				m.focus = FocusNotes
+				m.notesTable.Focus()
+				m.textArea.SetValue(m.app.GetCurrentNoteContent())
+			case FocusNotes:
+				m.focus = FocusThreads
+				m.threadsTable.Focus()
+				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
 			}
 			m.updateStatusBar()
+			return m, nil
+		case key.Matches(msg, globalKeys.GetHelp):
+			m.focus = FocusEdit
+			m.textArea.SetValue(HelpText())
 		}
 
 		// Handle mode-specific keys
 		switch m.focus {
-		case FocusSearch:
+		case FocusThreads:
 			switch {
-			case key.Matches(msg, searchKeys.Enter):
-				m.app.SearchNotes(m.searchInput.Value())
-				m.focus = FocusTable
-				m.table.Focus()
-				m.searchInput.Blur()
-				m.updateTable(context.Search)
-				// Reset cursor to first result
-				if len(m.app.GetCurrentNotes()) > 0 {
-					m.table.SetCursor(0)
-					m.app.SelectCurrentNote(0)
-					m.textarea.SetValue(m.app.CurrentNoteContent())
-					m.updateTopicsTable()
+			case key.Matches(msg, tableKeys.Select):
+				// Select thread and move focus to branches
+				cursor := m.threadsTable.Cursor()
+				m.app.GetDataMgr().SwitchActiveThread(cursor)
+				m.updateBranchesTable()
+				m.branchesTable.SetCursor(0)
+				m.updateNotesTable()
+				m.notesTable.SetCursor(0)
+				m.textArea.SetValue(m.app.GetCurrentNoteContent())
+				m.focus = FocusBranches
+				m.threadsTable.Blur()
+				m.branchesTable.Focus()
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.CreateNew):
+				m.app.CreateNewThread()
+				m.updateThreadsTable()
+				// Move cursor to new thread
+				lastIdx := len(m.app.GetThreadList()) - 1
+				if lastIdx >= 0 {
+					m.threadsTable.SetCursor(lastIdx)
 				}
 				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.Delete):
+				m.app.DeleteCurrentThread()
+				m.updateThreadsTable()
+				m.updateBranchesTable()
+				m.updateNotesTable()
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.GoToEdit):
+				m.previousFocus = FocusThreads
+				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+				m.focus = FocusEdit
+				m.blurAllTables()
+				m.textArea.Focus()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.DownTable):
+				// Move down to branches table
+				m.focus = FocusBranches
+				m.threadsTable.Blur()
+				m.branchesTable.Focus()
+				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+				m.updateStatusBar()
+				return m, nil
 			}
 
-		case FocusTable:
+		case FocusBranches:
 			switch {
-			case key.Matches(msg, tableKeys.GoToTextArea):
-				m.app.SelectCurrentNote(m.table.Cursor())
-				m.textarea.SetValue(m.app.CurrentNoteContent())
-				m.focus = FocusEdit
-				m.table.Blur()
-				m.textarea.Focus()
-				m.topicInput.Blur()
-				m.topicsTable.Blur()
-				m.updateTopicsTable()
+			case key.Matches(msg, tableKeys.Select):
+				// Select branch and move focus to notes
+				cursor := m.branchesTable.Cursor()
+				m.app.GetDataMgr().SwitchActiveBranch(cursor)
+				m.updateNotesTable()
+				m.notesTable.SetCursor(0) // Reset note cursor to first item
+				m.focus = FocusNotes
+				m.branchesTable.Blur()
+				m.notesTable.Focus()
+				m.textArea.SetValue(m.app.GetCurrentNoteContent()) // Update textArea with new note
+				m.updateStatusBar()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.CreateNewNote):
-				m.app.CreateNewNote()
-				m.updateTable(context.Default) // Update table to make sure new one is loaded
+			case key.Matches(msg, tableKeys.Back):
+				// Go back to threads
+				m.focus = FocusThreads
+				m.branchesTable.Blur()
+				m.threadsTable.Focus()
+				m.updateStatusBar()
+				return m, nil
 
-				// Set cursor
-				lastIdx := len(m.app.GetCurrentNotes()) - 1
+			case key.Matches(msg, tableKeys.CreateNew):
+				m.app.CreateNewBranch()
+				m.updateBranchesTable()
+				lastIdx := len(m.app.GetActiveBranchList()) - 1
 				if lastIdx >= 0 {
-					m.table.SetCursor(lastIdx)
-					m.app.SelectCurrentNote(lastIdx)
+					m.branchesTable.SetCursor(lastIdx)
 				}
-
-				m.textarea.SetValue(m.app.CurrentNoteContent())
 				m.updateStatusBar()
+				return m, nil
 
-				// Set focus to edit
+			case key.Matches(msg, tableKeys.Delete):
+				m.app.DeleteCurrentBranch()
+				m.updateBranchesTable()
+				m.updateNotesTable()
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.GoToEdit):
+				m.previousFocus = FocusBranches
+				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
 				m.focus = FocusEdit
-				m.table.Blur()
-				m.textarea.Focus()
-				m.topicInput.Blur()
-				m.topicsTable.Blur()
+				m.blurAllTables()
+				m.textArea.Focus()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.HighlightCurrentNote):
+			case key.Matches(msg, tableKeys.UpTable):
+				// Move up to threads table
+				m.focus = FocusThreads
+				m.branchesTable.Blur()
+				m.threadsTable.Focus()
+				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.DownTable):
+				// Move down to notes table
+				m.focus = FocusNotes
+				m.branchesTable.Blur()
+				m.notesTable.Focus()
+				m.textArea.SetValue(m.app.GetCurrentNoteContent())
+				m.updateStatusBar()
+				return m, nil
+			}
+
+		case FocusNotes:
+			switch {
+			case key.Matches(msg, tableKeys.Select):
+				// Select note and go to edit mode
+				cursor := m.notesTable.Cursor()
+				m.app.GetDataMgr().SwitchActiveNote(cursor)
+				m.previousFocus = FocusNotes
+				m.textArea.SetValue(m.app.GetCurrentNoteContent())
+				m.focus = FocusEdit
+				m.blurAllTables()
+				m.textArea.Focus()
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.Back):
+				// Go back to branches
+				m.focus = FocusBranches
+				m.notesTable.Blur()
+				m.branchesTable.Focus()
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.CreateNew):
+				m.app.CreateNewNote()
+				m.updateNotesTable()
+				lastIdx := len(m.app.GetActiveNoteList()) - 1
+				if lastIdx >= 0 {
+					m.notesTable.SetCursor(lastIdx)
+				}
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.Delete):
+				m.app.DeleteCurrentNote()
+				m.updateNotesTable()
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, tableKeys.Highlight):
 				m.app.ToggleCurrentNoteHighlight()
-				m.updateTable(m.CurrentContext)
+				m.updateNotesTable()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.PrivatizeCurrentNote):
+			case key.Matches(msg, tableKeys.Privatize):
 				m.app.ToggleCurrentNotePrivate()
-				m.updateTable(m.CurrentContext)
+				m.updateNotesTable()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.SyncWithDB):
-				m.app.SaveCurrentNote(m.textarea.Value())
-				m.app.SyncWithDatabase()
-				m.app.UpdateRecentNotes()
-				m.updateTable(m.CurrentContext)
-				m.updateTopicsTable()
+			case key.Matches(msg, tableKeys.GoToEdit):
+				cursor := m.notesTable.Cursor()
+				m.app.GetDataMgr().SwitchActiveNote(cursor)
+				m.previousFocus = FocusNotes
+				m.textArea.SetValue(m.app.GetCurrentNoteContent())
+				m.focus = FocusEdit
+				m.blurAllTables()
+				m.textArea.Focus()
+				return m, nil
 
-				// Ensure cursor is valid after sync
-				if len(m.app.GetCurrentNotes()) > 0 {
-					cursor := m.table.Cursor()
-					if cursor >= len(m.app.GetCurrentNotes()) {
-						cursor = len(m.app.GetCurrentNotes()) - 1
-						m.table.SetCursor(cursor)
-					}
-					m.app.SelectCurrentNote(cursor)
-					m.textarea.SetValue(m.app.CurrentNoteContent())
-				}
+			case key.Matches(msg, tableKeys.ViewChangelog):
+				m.updateChangelogTable()
+				m.focus = FocusChangelog
+				m.notesTable.Blur()
+				m.changeTable.Focus()
 				m.updateStatusBar()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.Retract):
-				// Get the last deleted note ID before undo
-				var restoredNoteID uint
-				for i := len(m.app.GetEditStack()) - 1; i >= 0; i-- {
-					id := m.app.GetEditStack()[i]
-					if edit := m.app.GetEdit(id); edit != nil && edit.EditType == 2 { // Delete type
-						restoredNoteID = id
-						break
-					}
-				}
-
-				m.app.UndoDelete()
-				new_cursor := m.app.UpdateCurrentList(m.CurrentContext, uint(m.table.Cursor()))
-				m.table.SetCursor(int(new_cursor))
-				m.updateTable(m.CurrentContext)
-
-				// Find the position of the restored note
-				if len(m.app.GetCurrentNotes()) > 0 && restoredNoteID > 0 {
-					foundIdx := 0
-					for i, note := range m.app.GetCurrentNotes() {
-						if note.ID == restoredNoteID {
-							foundIdx = i
-							break
-						}
-					}
-					m.table.SetCursor(foundIdx)
-					m.app.SelectCurrentNote(foundIdx)
-					m.textarea.SetValue(m.app.CurrentNoteContent())
-					m.updateTopicsTable()
-				}
+			case key.Matches(msg, tableKeys.UpTable):
+				// Move up to branches table
+				m.focus = FocusBranches
+				m.notesTable.Blur()
+				m.branchesTable.Focus()
+				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
 				m.updateStatusBar()
-
-			case key.Matches(msg, tableKeys.DeleteNote):
-				oldCursor := m.table.Cursor()
-				m.app.DeleteCurrentNote(uint(oldCursor))
-				m.updateTable(m.CurrentContext)
-
-				// Keep cursor at same position (shows next item naturally)
-				if len(m.app.GetCurrentNotes()) > 0 {
-					newCursor := oldCursor
-					if newCursor >= len(m.app.GetCurrentNotes()) {
-						newCursor = len(m.app.GetCurrentNotes()) - 1
-					}
-					m.table.SetCursor(newCursor)
-					m.app.SelectCurrentNote(newCursor)
-					m.textarea.SetValue(m.app.CurrentNoteContent())
-					m.updateTopicsTable()
-				} else {
-					m.app.SelectCurrentNote(0)
-					m.textarea.SetValue("")
-					m.updateTopicsTable()
-				}
-				m.updateStatusBar()
-
-			case key.Matches(msg, tableKeys.SwitchCtxSearch):
-				// Save current context's YOffset before switching
-				m.yOffsets[m.CurrentContext] = m.table.YOffset()
-				// First, save current cursor and switch context in app
-				new_cursor := m.app.UpdateCurrentList(context.Search, uint(m.table.Cursor()))
-				m.CurrentContext = context.Search
-				m.table.SetCursorAndOffset(int(new_cursor), m.yOffsets[context.Search])
-				m.focus = FocusSearch
-				m.searchInput.Focus()
-				m.table.Blur()
-				// Shrink table to make room for search bar
-				mainContentHeight := m.height - 3
-				m.table.SetHeight(max(5, mainContentHeight-6))
 				return m, nil
+			}
 
-			case key.Matches(msg, tableKeys.SwitchCtxRecent):
-				m.switchToContext(context.Recent)
-
-			case key.Matches(msg, tableKeys.SwitchCtxDefault):
-				m.switchToContext(context.Default)
+		case FocusChangelog:
+			switch {
+			case key.Matches(msg, tableKeys.Back):
+				// Go back to notes
+				m.focus = FocusNotes
+				m.changeTable.Blur()
+				m.notesTable.Focus()
+				m.updateStatusBar()
+				return m, nil
 			}
 
 		case FocusEdit:
 			switch {
-			case key.Matches(msg, editKeys.SaveCurrentNote):
-				m.app.SaveCurrentNote(m.textarea.Value())
-				m.updateTable(context.Default)
-				m.focus = FocusTable
-				m.table.Focus()
-				m.textarea.Blur()
-				m.searchInput.Blur()
-				m.topicInput.Blur()
-				m.topicsTable.Blur()
-				m.updateStatusBar()
-			}
-
-		case FocusTopics:
-			switch {
-			case key.Matches(msg, topicsKeys.AddTopic):
-				m.app.AddTopicsToCurrentNote(m.topicInput.Value())
-				m.topicInput.SetValue("")
-				m.updateTopicsTable()
-				m.updateStatusBar()
-
-			case key.Matches(msg, topicsKeys.DeleteTopic):
-				if m.app.HasCurrentNote() && len(m.app.CurrentNoteTopics()) > 0 {
-					// Remove the selected topic from the current note
-					topics := m.app.CurrentNoteTopics()
-					cursor := m.topicsTable.Cursor()
-					if cursor < len(topics) && cursor >= 0 {
-						m.app.RemoveTopicFromCurrentNote(topics[cursor].Topic)
-						m.updateTopicsTable()
-						// Adjust cursor if necessary
-						if len(m.app.CurrentNoteTopics()) > 0 && cursor >= len(m.app.CurrentNoteTopics()) {
-							m.topicsTable.SetCursor(len(m.app.CurrentNoteTopics()) - 1)
-						}
-					}
+			case key.Matches(msg, editKeys.SaveAndReturn):
+				// Save based on where we came from
+				switch m.previousFocus {
+				case FocusThreads:
+					m.app.SetCurrentThreadSummary(m.textArea.Value())
+					m.updateThreadsTable()
+				case FocusBranches:
+					m.app.SetCurrentBranchSummary(m.textArea.Value())
+					m.updateBranchesTable()
+				case FocusNotes:
+					m.app.SetCurrentNoteContent(m.textArea.Value())
+					m.updateNotesTable()
 				}
-				m.updateTable(context.Default) // Update note table to reflect topic changes
+
+				// Return to previous table
+				m.focus = m.previousFocus
+				m.textArea.Blur()
+				m.focusCurrentTable()
+				m.updateStatusBar()
+				return m, nil
+
+			case key.Matches(msg, editKeys.Cancel):
+				// Cancel without saving, return to previous table
+				m.focus = m.previousFocus
+				m.textArea.Blur()
+				m.focusCurrentTable()
+				m.updateStatusBar()
+				return m, nil
 			}
 		}
 
 	case table.MoveSelectMsg:
+		// Handle cursor movement in tables
 		switch m.focus {
-		case FocusTable:
-			m.app.SelectCurrentNote(m.table.Cursor())
-			m.textarea.SetValue(m.app.CurrentNoteContent())
-			m.updateTopicsTable()
-		case FocusTopics:
-			// No action needed for topic table selection, but ensure cursor is valid
-			if len(m.app.CurrentNoteTopics()) > 0 && m.topicsTable.Cursor() >= len(m.app.CurrentNoteTopics()) {
-				m.topicsTable.SetCursor(len(m.app.CurrentNoteTopics()) - 1)
-			}
+		case FocusThreads:
+			cursor := m.threadsTable.Cursor()
+			m.app.GetDataMgr().SwitchActiveThread(cursor)
+			m.updateBranchesTable()
+			// Reset branch cursor to 0 when thread changes
+			m.branchesTable.SetCursor(0)
+			m.updateNotesTable()
+			// Reset note cursor to 0 when branch changes
+			m.notesTable.SetCursor(0)
+			m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+			m.updateStatusBar()
+		case FocusBranches:
+			cursor := m.branchesTable.Cursor()
+			m.app.GetDataMgr().SwitchActiveBranch(cursor)
+			m.updateNotesTable()
+			// Reset note cursor to 0 when branch changes
+			m.notesTable.SetCursor(0)
+			m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+			m.updateStatusBar()
+		case FocusNotes:
+			cursor := m.notesTable.Cursor()
+			m.app.GetDataMgr().SwitchActiveNote(cursor)
+			m.textArea.SetValue(m.app.GetCurrentNoteContent())
+			m.updateStatusBar()
 		}
-		m.updateStatusBar()
 	}
 
+	// Update the focused component
 	switch m.focus {
-	case FocusSearch:
-		m.searchInput, cmd = m.searchInput.Update(msg)
+	case FocusThreads:
+		m.threadsTable, cmd = m.threadsTable.Update(msg)
 		cmds = append(cmds, cmd)
-	case FocusTable:
-		m.table, cmd = m.table.Update(msg)
+	case FocusBranches:
+		m.branchesTable, cmd = m.branchesTable.Update(msg)
+		cmds = append(cmds, cmd)
+	case FocusNotes:
+		m.notesTable, cmd = m.notesTable.Update(msg)
 		cmds = append(cmds, cmd)
 	case FocusEdit:
-		m.textarea, cmd = m.textarea.Update(msg)
+		m.textArea, cmd = m.textArea.Update(msg)
 		cmds = append(cmds, cmd)
-	case FocusTopics:
-		var cmdTopicInput, cmdTopicsTable tea.Cmd
-		m.topicInput, cmdTopicInput = m.topicInput.Update(msg)
-		m.topicsTable, cmdTopicsTable = m.topicsTable.Update(msg)
-		cmds = append(cmds, cmdTopicInput, cmdTopicsTable)
+	case FocusChangelog:
+		m.changeTable, cmd = m.changeTable.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+// Helper functions
+
+func (m *Model) blurAllTables() {
+	m.threadsTable.Blur()
+	m.branchesTable.Blur()
+	m.notesTable.Blur()
+}
+
+func (m *Model) focusCurrentTable() {
+	m.blurAllTables()
+	switch m.focus {
+	case FocusThreads:
+		m.threadsTable.Focus()
+	case FocusBranches:
+		m.branchesTable.Focus()
+	case FocusNotes:
+		m.notesTable.Focus()
+	case FocusChangelog:
+		m.changeTable.Focus()
+	}
 }
 
 // max returns the maximum of two integers

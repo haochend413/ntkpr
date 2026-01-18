@@ -30,22 +30,23 @@ var rootCmd = &cobra.Command{
 
 		// Initialize database
 		var err error
-		globalDB, err = db.NewDB(cfg.DataFilePath + "/notes.db")
+		globalDB, err = db.NewDB(cfg.DataFilePath + "/notes_dev.db") // TODO: change this back in official version!
 		if err != nil {
 			log.Fatal("Failed to connect to database:", err)
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get state
+		// Get state (can be nil if first run)
 		s, err := state.LoadState(globalCfg.StateFilePath)
 		if err != nil {
-			log.Fatal("Failed to load state:", err)
+			// Use default state if load fails
+			s = state.DefaultState()
 		}
 
-		// Initialize application
-		globalApp = app.NewApp(globalDB)
+		// Initialize application with AppState
+		globalApp = app.NewApp(globalDB, &s.App)
 
-		// Initialize UI model
+		// Initialize UI model with full state
 		model := ui.NewModel(globalApp, globalCfg, s)
 		globalModel = &model
 

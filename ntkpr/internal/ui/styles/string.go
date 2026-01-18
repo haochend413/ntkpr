@@ -7,12 +7,12 @@ import (
 // UI styles
 var (
 	BaseStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
+			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color("240")).
 			Padding(0, 1)
 
 	FocusedStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
+			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color("123")).
 			Padding(0, 1)
 
