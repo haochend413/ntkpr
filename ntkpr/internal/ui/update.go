@@ -206,9 +206,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.updateStatusBar()
 			return m, nil
-		case key.Matches(msg, globalKeys.GetHelp):
-			m.focus = FocusEdit
-			m.textArea.SetValue(HelpText())
 		}
 
 		// Handle mode-specific keys
