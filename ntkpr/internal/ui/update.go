@@ -56,7 +56,7 @@ type editKeyMap struct {
 
 var editKeys = editKeyMap{
 	SaveAndReturn: key.NewBinding(key.WithKeys("ctrl+s")),
-	Cancel:        key.NewBinding(key.WithKeys("esc")),
+	Cancel:        key.NewBinding(key.WithKeys("ctrl+x")),
 }
 
 // Update handles UI events and updates the model
@@ -129,7 +129,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Textarea takes most of right side
 		m.textArea.SetWidth(editWidth)
-		textareaHeight := max(5, int(float64(mainContentHeight)*0.7))
+		textareaHeight := max(5, int(float64(mainContentHeight)*0.7)) - 1
 		m.textArea.SetHeight(textareaHeight)
 
 		// Changelog table (below textarea)
@@ -141,7 +141,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.changeTable.SetColumns(changeColumns)
 		m.changeTable.SetWidth(editWidth)
-		changeTableHeight := max(3, mainContentHeight-textareaHeight-3)
+		changeTableHeight := max(5, int(float64(mainContentHeight)*0.3)) - 3
 		m.changeTable.SetHeight(changeTableHeight)
 
 	case tea.KeyMsg:

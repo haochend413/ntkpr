@@ -31,9 +31,9 @@ func (m Model) View() string {
 	// Render right side (textarea and changelog)
 	var editBox string
 	if m.focus == FocusEdit {
-		editBox = styles.FocusedStyle.Render(m.textArea.View())
+		editBox = styles.FocusedStyle.BorderTitle(" [4]-Editor ").Render(m.textArea.View())
 	} else {
-		editBox = styles.BaseStyle.Render(m.textArea.View())
+		editBox = styles.BaseStyle.BorderTitle("Editor").Render(m.textArea.View())
 	}
 
 	changelogBox := m.renderChangelogTableBox()
@@ -68,39 +68,39 @@ func (m Model) View() string {
 func (m Model) renderThreadsTableBox() string {
 	if m.focus == FocusThreads {
 		m.threadsTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.Render(m.threadsTable.View())
+		return styles.FocusedStyle.BorderTitle(" [1]-Threads ").Render(m.threadsTable.View())
 	} else {
 		m.threadsTable.SetStyles(styles.BaseTableStyle)
-		return styles.BaseStyle.Render(m.threadsTable.View())
+		return styles.BaseStyle.BorderTitle("Threads").Render(m.threadsTable.View())
 	}
 }
 
 func (m Model) renderBranchesTableBox() string {
 	if m.focus == FocusBranches {
 		m.branchesTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.Render(m.branchesTable.View())
+		return styles.FocusedStyle.BorderTitle(" [2]-Branches ").Render(m.branchesTable.View())
 	} else {
 		m.branchesTable.SetStyles(styles.BaseTableStyle)
-		return styles.BaseStyle.Render(m.branchesTable.View())
+		return styles.BaseStyle.BorderTitle("Branches").Render(m.branchesTable.View())
 	}
 }
 
 func (m Model) renderNotesTableBox() string {
 	if m.focus == FocusNotes {
 		m.notesTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.Render(m.notesTable.View())
+		return styles.FocusedStyle.BorderTitle(" [3]-Notes ").Render(m.notesTable.View())
 	} else {
 		m.notesTable.SetStyles(styles.BaseTableStyle)
-		return styles.BaseStyle.Render(m.notesTable.View())
+		return styles.BaseStyle.BorderTitle("Notes").Render(m.notesTable.View())
 	}
 }
 
 func (m Model) renderChangelogTableBox() string {
 	if m.focus == FocusChangelog {
 		m.changeTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.Render(m.changeTable.View())
+		return styles.FocusedStyle.BorderTitle(" [5]-Changelog ").Render(m.changeTable.View())
 	} else {
 		m.changeTable.SetStyles(styles.BaseTableStyle)
-		return styles.BaseStyle.Render(m.changeTable.View())
+		return styles.BaseStyle.BorderTitle("Changelog").Render(m.changeTable.View())
 	}
 }

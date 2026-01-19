@@ -7,7 +7,7 @@ import (
 
 	"github.com/haochend413/bubbles/statusbar"
 	"github.com/haochend413/bubbles/table"
-	"github.com/haochend413/bubbles/textarea"
+	"github.com/haochend413/bubbles/textarea_vim"
 	"github.com/haochend413/bubbles/textinput"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -36,7 +36,7 @@ type Model struct {
 	threadsTable  table.Model
 	branchesTable table.Model
 	notesTable    table.Model
-	textArea      textarea.Model
+	textArea      textarea_vim.Model
 	changeTable   table.Model
 	statusBar     statusbar.Model
 	previousFocus FocusState
@@ -129,7 +129,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	// You can also chain model methods
 	sb.SetWidth(100).SetHeight(1)
 
-	textArea := textarea.New()
+	textArea := textarea_vim.New()
 
 	// Set colors
 	textArea.FocusedStyle.CursorLine = lipgloss.NewStyle().Background(lipgloss.Color("240")).Foreground(lipgloss.Color("15"))
