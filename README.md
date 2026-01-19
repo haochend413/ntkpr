@@ -5,6 +5,10 @@
 
 I enjoy writing down plans, thoughts and ideas during daily work and life, and I also like the general style of terminal applications. `ntkpr` is an attempt to digitalize and automate the whole workflow, from which I hope to explore different patterns of note taking and managing. 
 
+## Development
+- Stable version: v0.2.0. Simple, 1-layer note managing.
+- developing: v0.3.0. Thread-Branch-Note version-control style structure, more advanced UI. 
+
 ## Installation Guide 
 Currently `ntkpr` runs on Linux and macOS. 
 
