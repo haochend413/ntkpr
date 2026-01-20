@@ -2,7 +2,6 @@ package app
 
 import (
 	"log"
-	"strings"
 	"time"
 
 	editstack "github.com/haochend413/ntkpr/internal/app/editStack"
@@ -52,20 +51,7 @@ func (a *App) GetCurrentNoteID() uint {
 }
 
 // GetCurrentNoteTopics returns a copy of the current note's topics to prevent external mutation
-func (a *App) GetCurrentNoteTopics() []*models.Topic {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	note := a.getCurrentNote()
-	if note == nil {
-		return nil
-	}
-
-	// Return a copy to prevent external mutation
-	topics := make([]*models.Topic, len(note.Topics))
-	copy(topics, note.Topics)
-	return topics
-}
+// (Topics removed) GetCurrentNoteTopics no longer available.
 
 // GetCurrentNoteHighlight returns whether the current note is highlighted
 func (a *App) GetCurrentNoteHighlight() bool {
@@ -208,89 +194,7 @@ func (a *App) ToggleCurrentNotePrivate() {
 // =============================================================================
 // Topic Management
 // =============================================================================
-
-// AddTopicsToCurrentNote parses a comma-separated list and adds unique topics to the current note
-func (a *App) AddTopicsToCurrentNote(topicsText string) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	note := a.getCurrentNote()
-	if note == nil {
-		return
-	}
-
-	topicsText = strings.ToLower(strings.TrimSpace(topicsText))
-	if topicsText == "" {
-		return
-	}
-
-	changed := false
-	topicNames := strings.Split(topicsText, ",")
-
-	for _, topicName := range topicNames {
-		topicName = strings.TrimSpace(topicName)
-		if topicName == "" {
-			continue
-		}
-
-		// Check if topic already exists
-		exists := false
-		for _, existing := range note.Topics {
-			if existing.Topic == topicName {
-				exists = true
-				break
-			}
-		}
-
-		if !exists {
-			topic := &models.Topic{Topic: topicName}
-			note.Topics = append(note.Topics, topic)
-			changed = true
-		}
-	}
-
-	if changed {
-		note.UpdatedAt = time.Now()
-		a.Synced = false
-
-		edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
-		if err := a.editMgr.AddEdit(edit); err != nil {
-			log.Printf("Error tracking note update: %v", err)
-		}
-	}
-}
-
-// RemoveTopicFromCurrentNote removes a specific topic from the current note
-func (a *App) RemoveTopicFromCurrentNote(topicToRemove string) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	note := a.getCurrentNote()
-	if note == nil {
-		return
-	}
-
-	newTopics := make([]*models.Topic, 0, len(note.Topics))
-	for _, topic := range note.Topics {
-		if topic.Topic != topicToRemove {
-			newTopics = append(newTopics, topic)
-		}
-	}
-
-	// No-op if nothing was removed
-	if len(newTopics) == len(note.Topics) {
-		return
-	}
-
-	note.Topics = newTopics
-	note.UpdatedAt = time.Now()
-	a.Synced = false
-
-	edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
-	if err := a.editMgr.AddEdit(edit); err != nil {
-		log.Printf("Error tracking note update: %v", err)
-	}
-}
+// Topic subsystem removed: topic add/remove APIs have been removed.
 
 // DeleteCurrentNote removes the current note from the current branch and tracks the deletion
 func (a *App) DeleteCurrentNote() {

@@ -3,7 +3,6 @@ package db
 // This package might need further tuning.
 // For starters, I think, maybe threads, branches and notes are redundant ?
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -15,7 +14,7 @@ import (
 // SyncData takes in local stored data and edit record, sync with database and return the latest synced data.
 func (d *DB) SyncData(
 	threads []*models.Thread,
-	editMap map[editstack.EditKey]*editstack.Edit) ([]*models.Topic, []*models.Thread, error) {
+	editMap map[editstack.EditKey]*editstack.Edit) ([]*models.Thread, error) {
 	// Categorize edits from the editMap
 	noteCreateIDs := make([]uint, 0)
 	notePendingIDs := make([]uint, 0)
@@ -95,7 +94,7 @@ func (d *DB) SyncData(
 	for _, threadID := range threadCreateIDs {
 		if thread, exists := threadsMap[threadID]; exists {
 			if err := d.persistThread(thread, true); err != nil {
-				return nil, nil, fmt.Errorf("failed to create thread %d: %w", thread.ID, err)
+				return nil, fmt.Errorf("failed to create thread %d: %w", thread.ID, err)
 			}
 		}
 	}
@@ -104,7 +103,7 @@ func (d *DB) SyncData(
 	for _, branchID := range branchCreateIDs {
 		if branch, exists := branchesMap[branchID]; exists {
 			if err := d.persistBranch(branch, true); err != nil {
-				return nil, nil, fmt.Errorf("failed to create branch %d: %w", branch.ID, err)
+				return nil, fmt.Errorf("failed to create branch %d: %w", branch.ID, err)
 			}
 		}
 	}
@@ -113,7 +112,7 @@ func (d *DB) SyncData(
 	for _, threadID := range threadPendingIDs {
 		if thread, exists := threadsMap[threadID]; exists {
 			if err := d.persistThread(thread, false); err != nil {
-				return nil, nil, fmt.Errorf("failed to update thread %d: %w", thread.ID, err)
+				return nil, fmt.Errorf("failed to update thread %d: %w", thread.ID, err)
 			}
 		}
 	}
@@ -123,7 +122,7 @@ func (d *DB) SyncData(
 		if note, exists := notesMap[noteID]; exists {
 			sanitizeNote(note)
 			if err := d.persistNote(note, true); err != nil {
-				return nil, nil, fmt.Errorf("failed to create note %d: %w", note.ID, err)
+				return nil, fmt.Errorf("failed to create note %d: %w", note.ID, err)
 			}
 		}
 	}
@@ -133,7 +132,7 @@ func (d *DB) SyncData(
 		if note, exists := notesMap[noteID]; exists {
 			sanitizeNote(note)
 			if err := d.persistNote(note, false); err != nil {
-				return nil, nil, fmt.Errorf("failed to update note %d: %w", note.ID, err)
+				return nil, fmt.Errorf("failed to update note %d: %w", note.ID, err)
 			}
 		}
 	}
@@ -142,22 +141,22 @@ func (d *DB) SyncData(
 	for _, branchID := range branchPendingIDs {
 		if branch, exists := branchesMap[branchID]; exists {
 			if err := d.persistBranch(branch, false); err != nil {
-				return nil, nil, fmt.Errorf("failed to update branch %d: %w", branch.ID, err)
+				return nil, fmt.Errorf("failed to update branch %d: %w", branch.ID, err)
 			}
 		}
 	}
 
 	// 6. Delete in reverse order: Notes -> Branches -> Threads
 	if err := d.deleteNotes(noteDeleteIDs); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err := d.deleteBranches(branchDeleteIDs); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err := d.deleteThreads(threadDeleteIDs); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// 7. Load fresh data from DB (with full preloading of hierarchy)
@@ -168,12 +167,7 @@ func (d *DB) persistNote(note *models.Note, isCreate bool) error {
 	if note == nil {
 		return nil
 	}
-	topics, err := d.ensureTopics(note.Topics)
-	if err != nil {
-		return err
-	}
-	note.Topics = topics
-
+	// Topics removed: only persist note and its branch associations
 	var result *gorm.DB
 	if isCreate {
 		result = d.Conn.Omit("Branches").Create(note) // Omit to prevent auto-insert
@@ -184,44 +178,8 @@ func (d *DB) persistNote(note *models.Note, isCreate bool) error {
 		return result.Error
 	}
 
-	// Handle both associations
-	if err := d.Conn.Model(note).Association("Topics").Replace(note.Topics); err != nil {
-		return err
-	}
+	// Handle branch associations
 	return d.Conn.Model(note).Association("Branches").Replace(note.Branches)
-}
-
-func (d *DB) ensureTopics(topics []*models.Topic) ([]*models.Topic, error) {
-	normalized := make([]*models.Topic, 0, len(topics))
-	seen := make(map[string]struct{}, len(topics))
-	for _, topic := range topics {
-		if topic == nil {
-			continue
-		}
-		name := strings.ToLower(strings.TrimSpace(topic.Topic))
-		if name == "" {
-			continue
-		}
-		if _, exists := seen[name]; exists {
-			continue
-		}
-		seen[name] = struct{}{}
-
-		existing := &models.Topic{}
-		if err := d.Conn.Where("topic = ?", name).First(existing).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				topic.Topic = name
-				if err := d.Conn.Create(topic).Error; err != nil {
-					return nil, err
-				}
-				normalized = append(normalized, topic)
-				continue
-			}
-			return nil, err
-		}
-		normalized = append(normalized, existing)
-	}
-	return normalized, nil
 }
 
 func (d *DB) deleteNotes(ids []uint) error {
@@ -343,23 +301,17 @@ func (d *DB) deleteBranches(ids []uint) error {
 // 	return branches
 // }
 
-func (d *DB) loadAll() ([]*models.Topic, []*models.Thread, error) {
-	var dbTopics []*models.Topic
-	if err := d.Conn.Order("topic ASC").Find(&dbTopics).Error; err != nil {
-		return nil, nil, err
-	}
-
+func (d *DB) loadAll() ([]*models.Thread, error) {
 	var dbThreads []*models.Thread
-	// preload with threads
+	// preload with threads and branches/notes
 	if err := d.Conn.
-		Preload("Branches.Notes.Topics").
 		Preload("Branches.Notes.Branches").
 		Order("created_at ASC").
 		Find(&dbThreads).Error; err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return dbTopics, dbThreads, nil
+	return dbThreads, nil
 }
 
 func uniqueIDs(ids []uint) []uint {

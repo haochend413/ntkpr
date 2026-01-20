@@ -102,13 +102,6 @@ func (cm *NoteContextMgr) RefreshSearchContext(q string) {
 	for _, note := range notes {
 		if strings.Contains(strings.ToLower(note.Content), query) {
 			filteredNotes = append(filteredNotes, note)
-			continue
-		}
-		for _, topic := range note.Topics {
-			if strings.Contains(strings.ToLower(topic.Topic), query) {
-				filteredNotes = append(filteredNotes, note)
-				break
-			}
 		}
 	}
 	// Sort by CreatedAt to maintain chronological order

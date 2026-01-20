@@ -56,7 +56,7 @@ func (a *App) GetEditMap() map[editstack.EditKey]*editstack.Edit {
 // loadData loads threads from the database and initializes data manager
 func (a *App) loadData() {
 	// fetch from db
-	_, threads, err := a.db.SyncData(
+	threads, err := a.db.SyncData(
 		[]*models.Thread{},
 		make(map[editstack.EditKey]*editstack.Edit),
 	)
@@ -240,7 +240,7 @@ func (a *App) SyncWithDatabase() {
 	}
 
 	// Sync with the database
-	_, updatedThreads, err := a.db.SyncData(threads, editMapCopy)
+	updatedThreads, err := a.db.SyncData(threads, editMapCopy)
 
 	if err != nil {
 		log.Printf("Error syncing with database: %v", err)
