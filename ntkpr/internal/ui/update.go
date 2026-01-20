@@ -235,6 +235,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if lastIdx >= 0 {
 					m.threadsTable.SetCursor(lastIdx)
 				}
+
+				cursor := m.threadsTable.Cursor()
+				m.app.GetDataMgr().SwitchActiveThread(cursor)
+				m.updateBranchesTable()
+				// Reset branch cursor to 0 when thread changes
+				m.branchesTable.SetCursor(0)
+				m.updateNotesTable()
+				// Reset note cursor to 0 when branch changes
+				m.notesTable.SetCursor(0)
+				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+
 				m.updateStatusBar()
 				return m, nil
 
@@ -243,6 +254,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateThreadsTable()
 				m.updateBranchesTable()
 				m.updateNotesTable()
+				// Set cursor for all tables
+				threadRows := m.threadsTable.Rows()
+				branchRows := m.branchesTable.Rows()
+				noteRows := m.notesTable.Rows()
+				prevThreadCursor := m.threadsTable.Cursor()
+				prevBranchCursor := m.branchesTable.Cursor()
+				prevNoteCursor := m.notesTable.Cursor()
+				if len(threadRows) > 0 {
+					if prevThreadCursor < len(threadRows) {
+						m.threadsTable.SetCursor(prevThreadCursor)
+					} else {
+						m.threadsTable.SetCursor(len(threadRows) - 1)
+					}
+				}
+				if len(branchRows) > 0 {
+					if prevBranchCursor < len(branchRows) {
+						m.branchesTable.SetCursor(prevBranchCursor)
+					} else {
+						m.branchesTable.SetCursor(len(branchRows) - 1)
+					}
+				}
+				if len(noteRows) > 0 {
+					if prevNoteCursor < len(noteRows) {
+						m.notesTable.SetCursor(prevNoteCursor)
+					} else {
+						m.notesTable.SetCursor(len(noteRows) - 1)
+					}
+				}
+				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
 				m.updateStatusBar()
 				return m, nil
 
@@ -294,6 +334,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if lastIdx >= 0 {
 					m.branchesTable.SetCursor(lastIdx)
 				}
+				cursor := m.branchesTable.Cursor()
+				m.app.GetDataMgr().SwitchActiveBranch(cursor)
+				m.updateNotesTable()
+				// Reset note cursor to 0 when branch changes
+				m.notesTable.SetCursor(0)
+				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
 				m.updateStatusBar()
 				return m, nil
 
@@ -301,6 +347,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.app.DeleteCurrentBranch()
 				m.updateBranchesTable()
 				m.updateNotesTable()
+				// Set cursor for all tables
+				threadRows := m.threadsTable.Rows()
+				branchRows := m.branchesTable.Rows()
+				noteRows := m.notesTable.Rows()
+				prevThreadCursor := m.threadsTable.Cursor()
+				prevBranchCursor := m.branchesTable.Cursor()
+				prevNoteCursor := m.notesTable.Cursor()
+				if len(threadRows) > 0 {
+					if prevThreadCursor < len(threadRows) {
+						m.threadsTable.SetCursor(prevThreadCursor)
+					} else {
+						m.threadsTable.SetCursor(len(threadRows) - 1)
+					}
+				}
+				if len(branchRows) > 0 {
+					if prevBranchCursor < len(branchRows) {
+						m.branchesTable.SetCursor(prevBranchCursor)
+					} else {
+						m.branchesTable.SetCursor(len(branchRows) - 1)
+					}
+				}
+				if len(noteRows) > 0 {
+					if prevNoteCursor < len(noteRows) {
+						m.notesTable.SetCursor(prevNoteCursor)
+					} else {
+						m.notesTable.SetCursor(len(noteRows) - 1)
+					}
+				}
+				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
 				m.updateStatusBar()
 				return m, nil
 
@@ -360,12 +435,45 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if lastIdx >= 0 {
 					m.notesTable.SetCursor(lastIdx)
 				}
+				cursor := m.notesTable.Cursor()
+				m.app.GetDataMgr().SwitchActiveNote(cursor)
+				m.textArea.SetValue(m.app.GetCurrentNoteContent())
+				m.updateNotesTable()
 				m.updateStatusBar()
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Delete):
 				m.app.DeleteCurrentNote()
 				m.updateNotesTable()
+				// Set cursor for all tables
+				threadRows := m.threadsTable.Rows()
+				branchRows := m.branchesTable.Rows()
+				noteRows := m.notesTable.Rows()
+				prevThreadCursor := m.threadsTable.Cursor()
+				prevBranchCursor := m.branchesTable.Cursor()
+				prevNoteCursor := m.notesTable.Cursor()
+				if len(threadRows) > 0 {
+					if prevThreadCursor < len(threadRows) {
+						m.threadsTable.SetCursor(prevThreadCursor)
+					} else {
+						m.threadsTable.SetCursor(len(threadRows) - 1)
+					}
+				}
+				if len(branchRows) > 0 {
+					if prevBranchCursor < len(branchRows) {
+						m.branchesTable.SetCursor(prevBranchCursor)
+					} else {
+						m.branchesTable.SetCursor(len(branchRows) - 1)
+					}
+				}
+				if len(noteRows) > 0 {
+					if prevNoteCursor < len(noteRows) {
+						m.notesTable.SetCursor(prevNoteCursor)
+					} else {
+						m.notesTable.SetCursor(len(noteRows) - 1)
+					}
+				}
+				m.textArea.SetValue(m.app.GetCurrentNoteContent())
 				m.updateStatusBar()
 				return m, nil
 
