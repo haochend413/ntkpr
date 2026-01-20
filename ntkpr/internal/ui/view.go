@@ -54,14 +54,14 @@ func (m Model) View() string {
 	if m.focus == FocusEdit {
 		// more complete, multi-line help for edit mode
 		help = styles.HelpStyle.Render(
-			"Arrows: move • Home/End: line start/end • Alt/Option+←/→: word backward/forward • Ctrl+K: del-after • Ctrl+U: del-before" +
+			"Arrows: move • Home/End: line start/end • Alt/Option+←/→: word backward/forward • Ctrl+K: del-after • Ctrl+U: del-before • " +
 				"Ctrl+H/Backspace: del-back • Del/Ctrl+D: del-forward • Alt/Option+c/l/u: Cap/Lower/Upper • Ctrl+T: transpose",
 		)
 	} else {
 		// Global/table help derived from tableKeys and globalKeys
 		help = styles.HelpStyle.Render(
-			"Tab: cycle tables • Enter: select • Esc: back/cancel • e/Ctrl+E: edit • n/Ctrl+N: new" +
-				"q/w: move to upper/lower table • Ctrl+D: delete • Ctrl+H: highlight • Ctrl+P: private • Ctrl+L: changelog" +
+			"Tab: cycle tables • Enter: select • Esc: back/cancel • e/Ctrl+E: edit • n/Ctrl+N: new • " +
+				"q/w: move to upper/lower table • Ctrl+D: delete • Ctrl+H: highlight • Ctrl+P: private • Ctrl+L: changelog • " +
 				"Ctrl+S: save • Ctrl+Q: sync • Ctrl+C: quit",
 		)
 	}
