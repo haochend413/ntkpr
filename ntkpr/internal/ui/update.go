@@ -84,9 +84,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Distribute column widths for tables
 		idWidth := max(4, int(float64(tableWidth)*0.08))
 		timeWidth := max(8, int(float64(tableWidth)*0.22))
-		flagWidth := max(4, int(float64(tableWidth)*0.10))
-		nameWidth := max(10, int(float64(tableWidth)*0.48))
-		contentWidth := max(10, int(float64(tableWidth)*0.48))
+		flagWidth := max(4, int(float64(tableWidth)*0.15))
+		nameWidth := max(10, int(float64(tableWidth)*0.58))
+		contentWidth := max(10, int(float64(tableWidth)*0.58))
 
 		// Separate column definitions for threads, branches (Name), and notes (Content)
 		threadColumns := []table.Column{

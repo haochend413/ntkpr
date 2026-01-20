@@ -14,7 +14,7 @@ var BaseTableStyle = table.Styles{
 	Cell: lipgloss.NewStyle().
 		Padding(0, 0),
 	Selected: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("49")), // yellow
+		Foreground(lipgloss.Color("51")), // yellow
 
 }
 
@@ -26,7 +26,7 @@ var FocusedTableStyle = table.Styles{
 	Cell: lipgloss.NewStyle().
 		Padding(0, 0),
 	Selected: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("49")).
-		Background(lipgloss.Color("243")). // purple
+		Foreground(lipgloss.Color("51")).
+		Background(lipgloss.Color("20")). // purple
 		Bold(true),
 }

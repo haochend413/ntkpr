@@ -8,12 +8,12 @@ import (
 var (
 	BaseStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")).
+			BorderForeground(lipgloss.Color("255")).
 			Padding(0, 1)
 
 	FocusedStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("123")).
+			BorderForeground(lipgloss.Color("51")).
 			Padding(0, 1)
 
 	TitleStyle = lipgloss.NewStyle().
@@ -22,7 +22,7 @@ var (
 			Padding(0, 1)
 
 	HelpStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
+			Foreground(lipgloss.Color("62")).
 			Padding(1, 0, 0, 2)
 
 	HighlightFlagStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("190"))
