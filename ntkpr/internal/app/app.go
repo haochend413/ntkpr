@@ -136,7 +136,7 @@ func (a *App) CreateNewNote() {
 	note.UpdatedAt = time.Now()
 	note.ID = a.nextNoteCreateID
 	note.ThreadID = thread.ID
-	// note.Branches = []*models.Branch{branch}
+	note.Branches = []*models.Branch{branch}
 	a.nextNoteCreateID += 1
 	a.Synced = false
 
