@@ -14,6 +14,5 @@ type Branch struct {
 	Summary    string
 	Highlight  bool    `gorm:"default:false"`
 	Private    bool    `gorm:"default:false"`
-	NoteCount  int     `gorm:"default:0"`
 	Notes      []*Note `gorm:"many2many:branch_notes;constraint:OnDelete:CASCADE;"` // Maybe we can improve it ? Let's first keep it this way.
 }

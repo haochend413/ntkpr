@@ -45,8 +45,8 @@ var tableKeys = tableKeyMap{
 	Privatize:     key.NewBinding(key.WithKeys("ctrl+p")),
 	GoToEdit:      key.NewBinding(key.WithKeys("e", "ctrl+e")),
 	ViewChangelog: key.NewBinding(key.WithKeys("ctrl+l")),
-	UpTable:       key.NewBinding(key.WithKeys("q")),
-	DownTable:     key.NewBinding(key.WithKeys("w")),
+	UpTable:       key.NewBinding(key.WithKeys("l", "left")),
+	DownTable:     key.NewBinding(key.WithKeys("h", "right")),
 }
 
 // Edit focus keys
@@ -86,7 +86,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		idWidth := max(4, int(float64(tableWidth)*0.08))
 		timeWidth := max(8, int(float64(tableWidth)*0.22))
 		flagWidth := max(4, int(float64(tableWidth)*0.15))
-		nameWidth := max(10, int(float64(tableWidth)*0.58))
+		CountWidth := max(4, int(float64(tableWidth)*0.07))
+		nameWidth := max(10, int(float64(tableWidth)*0.51))
 		contentWidth := max(10, int(float64(tableWidth)*0.58))
 
 		// Separate column definitions for threads, branches (Name), and notes (Content)
@@ -94,6 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "ID", Width: idWidth},
 			{Title: "Time", Width: timeWidth},
 			{Title: "Name", Width: nameWidth},
+			{Title: "#Bs", Width: CountWidth},
 			{Title: "Flags", Width: flagWidth},
 		}
 
@@ -101,6 +103,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "ID", Width: idWidth},
 			{Title: "Time", Width: timeWidth},
 			{Title: "Name", Width: nameWidth},
+			{Title: "#Ns", Width: CountWidth},
 			{Title: "Flags", Width: flagWidth},
 		}
 
@@ -124,9 +127,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Each table gets 1/3 of the left side height
 		tableHeight := max(3, (mainContentHeight-3)/10) // -6 for borders/margins
-		m.threadsTable.SetHeight(tableHeight * 1)
-		m.branchesTable.SetHeight(tableHeight * 2)
-		m.notesTable.SetHeight(tableHeight * 8)
+		standard_thread_height := tableHeight + 2 - 3
+		standard_branch_height := tableHeight + 2 - 3
+		standard_notes_height := tableHeight*8 + 4 - 3
+		m.threadsTable.SetHeight(standard_thread_height + 6)
+		m.branchesTable.SetHeight(standard_branch_height)
+		m.notesTable.SetHeight(standard_notes_height)
 
 		// Textarea takes most of right side
 		m.textArea.SetWidth(editWidth)
@@ -497,18 +503,33 @@ func (m *Model) SetFocus(focus FocusState) {
 		// Should use ExitEdit instead
 		return
 	}
+	// This should add animation for size shifting.
 	m.blurAllTables()
 	m.focus = focus
+	tableHeight := max(3, (m.height-5-3)/10)
+	standard_thread_height := tableHeight + 2 - 3
+	standard_branch_height := tableHeight + 2 - 3
+	standard_notes_height := tableHeight*8 + 4 - 3
+
 	switch focus {
 	case FocusThreads:
 		m.threadsTable.Focus()
 		m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+		m.threadsTable.SetHeight(standard_thread_height + 6)
+		m.branchesTable.SetHeight(standard_branch_height)
+		m.notesTable.SetHeight(standard_notes_height)
 	case FocusBranches:
 		m.branchesTable.Focus()
 		m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+		m.threadsTable.SetHeight(standard_thread_height)
+		m.branchesTable.SetHeight(standard_branch_height + 6)
+		m.notesTable.SetHeight(standard_notes_height)
 	case FocusNotes:
 		m.notesTable.Focus()
 		m.textArea.SetValue(m.app.GetCurrentNoteContent())
+		m.threadsTable.SetHeight(standard_thread_height)
+		m.branchesTable.SetHeight(standard_branch_height)
+		m.notesTable.SetHeight(standard_notes_height + 6)
 	case FocusChangelog:
 		m.changeTable.Focus()
 	}
