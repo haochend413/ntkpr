@@ -86,7 +86,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		idWidth := max(4, int(float64(tableWidth)*0.08))
 		timeWidth := max(8, int(float64(tableWidth)*0.22))
 		flagWidth := max(4, int(float64(tableWidth)*0.15))
-		nameWidth := max(10, int(float64(tableWidth)*0.58))
+		CountWidth := max(4, int(float64(tableWidth)*0.07))
+		nameWidth := max(10, int(float64(tableWidth)*0.51))
 		contentWidth := max(10, int(float64(tableWidth)*0.58))
 
 		// Separate column definitions for threads, branches (Name), and notes (Content)
@@ -94,6 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "ID", Width: idWidth},
 			{Title: "Time", Width: timeWidth},
 			{Title: "Name", Width: nameWidth},
+			{Title: "#Bs", Width: CountWidth},
 			{Title: "Flags", Width: flagWidth},
 		}
 
@@ -101,6 +103,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "ID", Width: idWidth},
 			{Title: "Time", Width: timeWidth},
 			{Title: "Name", Width: nameWidth},
+			{Title: "#Ns", Width: CountWidth},
 			{Title: "Flags", Width: flagWidth},
 		}
 

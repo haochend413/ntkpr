@@ -76,6 +76,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 		{Title: "ID", Width: 4},
 		{Title: "Time", Width: 16},
 		{Title: "Name", Width: 40},
+		{Title: "#Ns", Width: 2},
 		{Title: "Flags", Width: 6},
 	}
 
@@ -88,6 +89,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 		{Title: "ID", Width: 4},
 		{Title: "Time", Width: 16},
 		{Title: "Name", Width: 40},
+		{Title: "#Bs", Width: 2},
 		{Title: "Flags", Width: 6},
 	}
 
@@ -217,6 +219,9 @@ func (m *Model) updateThreadsTable() {
 			timeStr = time.Now().Format("06-01-02 15:04")
 		}
 
+		bsStrRaw := "0"
+		bsStrRaw = strconv.Itoa(len(thread.Branches))
+
 		flagStrRaw := ""
 		if thread.Highlight {
 			flagStrRaw += "H"
@@ -230,6 +235,7 @@ func (m *Model) updateThreadsTable() {
 			idStr,
 			timeStr,
 			name,
+			bsStrRaw,
 			flagStrRaw,
 		}
 	}
@@ -256,6 +262,9 @@ func (m *Model) updateBranchesTable() {
 			timeStr = time.Now().Format("06-01-02 15:04")
 		}
 
+		nsStrRaw := "0"
+		nsStrRaw = strconv.Itoa(len(branch.Notes))
+
 		flagStrRaw := ""
 		if branch.Highlight {
 			flagStrRaw += "H"
@@ -269,6 +278,7 @@ func (m *Model) updateBranchesTable() {
 			idStr,
 			timeStr,
 			name,
+			nsStrRaw,
 			flagStrRaw,
 		}
 	}
