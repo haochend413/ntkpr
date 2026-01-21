@@ -4,6 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/haochend413/bubbles/key"
 	"github.com/haochend413/bubbles/table"
+	"github.com/haochend413/ntkpr/sys"
 )
 
 // Global keys that work in any mode
@@ -164,47 +165,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Tab cycles through three tables only: Threads -> Branches -> Notes -> Threads
 			// Edit and Changelog can only be accessed via specific keys (e/ctrl+e and ctrl+l)
 			if m.focus == FocusEdit {
-				// If in edit, tab saves and returns to previous table
-				switch m.previousFocus {
-				case FocusThreads:
-					m.app.SetCurrentThreadSummary(m.textArea.Value())
-					m.updateThreadsTable()
-				case FocusBranches:
-					m.app.SetCurrentBranchSummary(m.textArea.Value())
-					m.updateBranchesTable()
-				case FocusNotes:
-					m.app.SetCurrentNoteContent(m.textArea.Value())
-					m.updateNotesTable()
-				}
-				m.focus = m.previousFocus
-				m.textArea.Blur()
-				m.focusCurrentTable()
-				m.updateStatusBar()
+				m.ExitEdit(true)
 				return m, nil
 			}
-
 			if m.focus == FocusChangelog {
 				// If in changelog, tab does nothing
 				return m, nil
 			}
-
-			m.blurAllTables()
-
+			// Cycle focus: Threads -> Branches -> Notes -> Threads
 			switch m.focus {
 			case FocusThreads:
-				m.focus = FocusBranches
-				m.branchesTable.Focus()
-				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+				m.SetFocus(FocusBranches)
 			case FocusBranches:
-				m.focus = FocusNotes
-				m.notesTable.Focus()
-				m.textArea.SetValue(m.app.GetCurrentNoteContent())
+				m.SetFocus(FocusNotes)
 			case FocusNotes:
-				m.focus = FocusThreads
-				m.threadsTable.Focus()
-				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+				m.SetFocus(FocusThreads)
 			}
-			m.updateStatusBar()
 			return m, nil
 		}
 
@@ -213,40 +189,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case FocusThreads:
 			switch {
 			case key.Matches(msg, tableKeys.Select):
-				// Select thread and move focus to branches
 				cursor := m.threadsTable.Cursor()
 				m.app.GetDataMgr().SwitchActiveThread(cursor)
 				m.updateBranchesTable()
 				m.branchesTable.SetCursor(0)
 				m.updateNotesTable()
 				m.notesTable.SetCursor(0)
-				m.textArea.SetValue(m.app.GetCurrentNoteContent())
-				m.focus = FocusBranches
-				m.threadsTable.Blur()
-				m.branchesTable.Focus()
-				m.updateStatusBar()
+				m.SetFocus(FocusBranches)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.CreateNew):
 				m.app.CreateNewThread()
 				m.updateThreadsTable()
-				// Move cursor to new thread
 				lastIdx := len(m.app.GetThreadList()) - 1
 				if lastIdx >= 0 {
 					m.threadsTable.SetCursor(lastIdx)
 				}
-
 				cursor := m.threadsTable.Cursor()
 				m.app.GetDataMgr().SwitchActiveThread(cursor)
 				m.updateBranchesTable()
-				// Reset branch cursor to 0 when thread changes
 				m.branchesTable.SetCursor(0)
 				m.updateNotesTable()
-				// Reset note cursor to 0 when branch changes
 				m.notesTable.SetCursor(0)
-				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
-
-				m.updateStatusBar()
+				m.SetFocus(FocusThreads)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Delete):
@@ -254,7 +219,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateThreadsTable()
 				m.updateBranchesTable()
 				m.updateNotesTable()
-				// Set cursor for all tables
 				threadRows := m.threadsTable.Rows()
 				branchRows := m.branchesTable.Rows()
 				noteRows := m.notesTable.Rows()
@@ -282,49 +246,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.notesTable.SetCursor(len(noteRows) - 1)
 					}
 				}
-				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
-				m.updateStatusBar()
+				m.SetFocus(FocusThreads)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.GoToEdit):
-				m.previousFocus = FocusThreads
-				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
-				m.focus = FocusEdit
-				m.blurAllTables()
-				m.textArea.Focus()
+				m.EnterEdit(FocusThreads)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.DownTable):
-				// Move down to branches table
-				m.focus = FocusBranches
-				m.threadsTable.Blur()
-				m.branchesTable.Focus()
-				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
-				m.updateStatusBar()
+				m.SetFocus(FocusBranches)
 				return m, nil
 			}
 
 		case FocusBranches:
 			switch {
 			case key.Matches(msg, tableKeys.Select):
-				// Select branch and move focus to notes
 				cursor := m.branchesTable.Cursor()
 				m.app.GetDataMgr().SwitchActiveBranch(cursor)
 				m.updateNotesTable()
-				m.notesTable.SetCursor(0) // Reset note cursor to first item
-				m.focus = FocusNotes
-				m.branchesTable.Blur()
-				m.notesTable.Focus()
-				m.textArea.SetValue(m.app.GetCurrentNoteContent()) // Update textArea with new note
-				m.updateStatusBar()
+				m.notesTable.SetCursor(0)
+				m.SetFocus(FocusNotes)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Back):
-				// Go back to threads
-				m.focus = FocusThreads
-				m.branchesTable.Blur()
-				m.threadsTable.Focus()
-				m.updateStatusBar()
+				m.SetFocus(FocusThreads)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.CreateNew):
@@ -337,17 +282,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cursor := m.branchesTable.Cursor()
 				m.app.GetDataMgr().SwitchActiveBranch(cursor)
 				m.updateNotesTable()
-				// Reset note cursor to 0 when branch changes
 				m.notesTable.SetCursor(0)
-				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
-				m.updateStatusBar()
+				m.SetFocus(FocusBranches)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Delete):
 				m.app.DeleteCurrentBranch()
 				m.updateBranchesTable()
 				m.updateNotesTable()
-				// Set cursor for all tables
 				threadRows := m.threadsTable.Rows()
 				branchRows := m.branchesTable.Rows()
 				noteRows := m.notesTable.Rows()
@@ -375,57 +317,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.notesTable.SetCursor(len(noteRows) - 1)
 					}
 				}
-				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
-				m.updateStatusBar()
+				m.SetFocus(FocusBranches)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.GoToEdit):
-				m.previousFocus = FocusBranches
-				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
-				m.focus = FocusEdit
-				m.blurAllTables()
-				m.textArea.Focus()
+				m.EnterEdit(FocusBranches)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.UpTable):
-				// Move up to threads table
-				m.focus = FocusThreads
-				m.branchesTable.Blur()
-				m.threadsTable.Focus()
-				m.textArea.SetValue(m.app.GetCurrentThreadSummary())
-				m.updateStatusBar()
+				m.SetFocus(FocusThreads)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.DownTable):
-				// Move down to notes table
-				m.focus = FocusNotes
-				m.branchesTable.Blur()
-				m.notesTable.Focus()
-				m.textArea.SetValue(m.app.GetCurrentNoteContent())
-				m.updateStatusBar()
+				m.SetFocus(FocusNotes)
 				return m, nil
 			}
 
 		case FocusNotes:
 			switch {
 			case key.Matches(msg, tableKeys.Select):
-				// Select note and go to edit mode
 				cursor := m.notesTable.Cursor()
 				m.app.GetDataMgr().SwitchActiveNote(cursor)
-				m.previousFocus = FocusNotes
-				m.textArea.SetValue(m.app.GetCurrentNoteContent())
-				m.focus = FocusEdit
-				m.blurAllTables()
-				m.textArea.Focus()
+				m.EnterEdit(FocusNotes)
 				m.updateStatusBar()
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Back):
-				// Go back to branches
-				m.focus = FocusBranches
-				m.notesTable.Blur()
-				m.branchesTable.Focus()
-				m.updateStatusBar()
+				m.SetFocus(FocusBranches)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.CreateNew):
@@ -437,15 +355,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				cursor := m.notesTable.Cursor()
 				m.app.GetDataMgr().SwitchActiveNote(cursor)
-				m.textArea.SetValue(m.app.GetCurrentNoteContent())
+				m.SetFocus(FocusNotes)
 				m.updateNotesTable()
-				m.updateStatusBar()
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Delete):
 				m.app.DeleteCurrentNote()
 				m.updateNotesTable()
-				// Set cursor for all tables
 				threadRows := m.threadsTable.Rows()
 				branchRows := m.branchesTable.Rows()
 				noteRows := m.notesTable.Rows()
@@ -473,8 +389,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.notesTable.SetCursor(len(noteRows) - 1)
 					}
 				}
-				m.textArea.SetValue(m.app.GetCurrentNoteContent())
-				m.updateStatusBar()
+				m.SetFocus(FocusNotes)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Highlight):
@@ -490,71 +405,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, tableKeys.GoToEdit):
 				cursor := m.notesTable.Cursor()
 				m.app.GetDataMgr().SwitchActiveNote(cursor)
-				m.previousFocus = FocusNotes
-				m.textArea.SetValue(m.app.GetCurrentNoteContent())
-				m.focus = FocusEdit
-				m.blurAllTables()
-				m.textArea.Focus()
+				m.EnterEdit(FocusNotes)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.ViewChangelog):
 				m.updateChangelogTable()
-				m.focus = FocusChangelog
-				m.notesTable.Blur()
-				m.changeTable.Focus()
-				m.updateStatusBar()
+				m.SetFocus(FocusChangelog)
 				return m, nil
 
 			case key.Matches(msg, tableKeys.UpTable):
-				// Move up to branches table
-				m.focus = FocusBranches
-				m.notesTable.Blur()
-				m.branchesTable.Focus()
-				m.textArea.SetValue(m.app.GetCurrentBranchSummary())
-				m.updateStatusBar()
+				m.SetFocus(FocusBranches)
 				return m, nil
 			}
 
 		case FocusChangelog:
 			switch {
 			case key.Matches(msg, tableKeys.Back):
-				// Go back to notes
-				m.focus = FocusNotes
-				m.changeTable.Blur()
-				m.notesTable.Focus()
-				m.updateStatusBar()
+				m.SetFocus(FocusNotes)
 				return m, nil
 			}
 
 		case FocusEdit:
 			switch {
 			case key.Matches(msg, editKeys.SaveAndReturn):
-				// Save based on where we came from
-				switch m.previousFocus {
-				case FocusThreads:
-					m.app.SetCurrentThreadSummary(m.textArea.Value())
-					m.updateThreadsTable()
-				case FocusBranches:
-					m.app.SetCurrentBranchSummary(m.textArea.Value())
-					m.updateBranchesTable()
-				case FocusNotes:
-					m.app.SetCurrentNoteContent(m.textArea.Value())
-					m.updateNotesTable()
-				}
-
-				// Return to previous table
-				m.focus = m.previousFocus
-				m.textArea.Blur()
-				m.focusCurrentTable()
-				m.updateStatusBar()
+				m.ExitEdit(true)
 				return m, nil
 
 			case key.Matches(msg, editKeys.Cancel):
-				// Cancel without saving, return to previous table
-				m.focus = m.previousFocus
-				m.textArea.Blur()
-				m.focusCurrentTable()
-				m.updateStatusBar()
+				m.ExitEdit(false)
 				return m, nil
 			}
 		}
@@ -612,6 +490,76 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // Helper functions
+
+// SetFocus centralizes focus switching, previousFocus, blur/focus, and textArea population
+func (m *Model) SetFocus(focus FocusState) {
+	if m.focus == FocusEdit {
+		// Should use ExitEdit instead
+		return
+	}
+	m.blurAllTables()
+	m.focus = focus
+	switch focus {
+	case FocusThreads:
+		m.threadsTable.Focus()
+		m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+	case FocusBranches:
+		m.branchesTable.Focus()
+		m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+	case FocusNotes:
+		m.notesTable.Focus()
+		m.textArea.SetValue(m.app.GetCurrentNoteContent())
+	case FocusChangelog:
+		m.changeTable.Focus()
+	}
+	m.updateStatusBar()
+}
+
+// EnterEdit switches to edit mode from a given focus, sets previousFocus, populates textarea, and focuses textarea
+func (m *Model) EnterEdit(from FocusState) {
+	//after enter edit, we should always switch to the previous stored input method.
+	// fmt.Printf(m.editPrevInputMethodID)
+	// id, _ := sys.InputMethodID(m.editPrevIMEType)
+	// sys.SwitchInputMethod(id) // bring back to previous method
+	m.previousFocus = from
+	switch from {
+	case FocusThreads:
+		m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+	case FocusBranches:
+		m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+	case FocusNotes:
+		m.textArea.SetValue(m.app.GetCurrentNoteContent())
+	}
+	m.focus = FocusEdit
+	m.blurAllTables()
+	m.textArea.Focus()
+}
+
+// ExitEdit leaves edit mode, optionally saving, and returns to previous focus
+func (m *Model) ExitEdit(save bool) {
+	// after we exit, we should always switch to english input method to prevent keypress blocking by chinese input method.
+	// t, _ := sys.GetCurrentInputMethod()
+
+	sys.SwitchInputMethod(sys.ENGLISH_INPUT_METHOD_ID)
+
+	if save {
+		switch m.previousFocus {
+		case FocusThreads:
+			m.app.SetCurrentThreadSummary(m.textArea.Value())
+			m.updateThreadsTable()
+		case FocusBranches:
+			m.app.SetCurrentBranchSummary(m.textArea.Value())
+			m.updateBranchesTable()
+		case FocusNotes:
+			m.app.SetCurrentNoteContent(m.textArea.Value())
+			m.updateNotesTable()
+		}
+	}
+	m.focus = m.previousFocus
+	m.textArea.Blur()
+	m.focusCurrentTable()
+	m.updateStatusBar()
+}
 
 func (m *Model) blurAllTables() {
 	m.threadsTable.Blur()

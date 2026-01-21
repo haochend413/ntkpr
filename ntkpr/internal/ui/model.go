@@ -16,6 +16,7 @@ import (
 	"github.com/haochend413/ntkpr/internal/app"
 	"github.com/haochend413/ntkpr/internal/models"
 	"github.com/haochend413/ntkpr/state"
+	"github.com/haochend413/ntkpr/sys"
 )
 
 // FocusState represents the current UI focus
@@ -31,19 +32,20 @@ const (
 
 // Model represents the Bubble Tea model
 type Model struct {
-	app           *app.App
-	Config        *config.Config
-	threadsTable  table.Model
-	branchesTable table.Model
-	notesTable    table.Model
-	textArea      textarea_vim.Model
-	changeTable   table.Model
-	statusBar     statusbar.Model
-	previousFocus FocusState
-	focus         FocusState
-	width         int
-	height        int
-	ready         bool
+	app             *app.App
+	Config          *config.Config
+	threadsTable    table.Model
+	branchesTable   table.Model
+	notesTable      table.Model
+	textArea        textarea_vim.Model
+	changeTable     table.Model
+	statusBar       statusbar.Model
+	previousFocus   FocusState
+	focus           FocusState
+	editPrevIMEType sys.InputMethodType
+	width           int
+	height          int
+	ready           bool
 }
 
 // NewModel initializes a new UI model
@@ -164,15 +166,16 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	)
 
 	m := Model{
-		app:           application,
-		Config:        cfg,
-		threadsTable:  threadTable,
-		branchesTable: branchTable,
-		notesTable:    noteTable,
-		textArea:      textArea,
-		statusBar:     sb,
-		changeTable:   changeTable,
-		focus:         FocusThreads,
+		app:             application,
+		Config:          cfg,
+		threadsTable:    threadTable,
+		branchesTable:   branchTable,
+		notesTable:      noteTable,
+		textArea:        textArea,
+		statusBar:       sb,
+		changeTable:     changeTable,
+		focus:           FocusThreads,
+		editPrevIMEType: sys.InputMethodEnglish, // default to be english
 	}
 
 	//set states
