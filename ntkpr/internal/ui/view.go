@@ -20,11 +20,8 @@ func (m Model) View() string {
 	notesBox := m.renderNotesTableBox()
 
 	leftSide := lipgloss.JoinVertical(lipgloss.Left,
-		// styles.TitleStyle.Render("Threads"),
 		threadsBox,
-		// styles.TitleStyle.Render("Branches"),
 		branchesBox,
-		// styles.TitleStyle.Render("Notes"),
 		notesBox,
 	)
 

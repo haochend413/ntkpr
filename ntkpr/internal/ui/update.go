@@ -561,7 +561,9 @@ func (m *Model) ExitEdit(save bool) {
 	// after we exit, we should always switch to english input method to prevent keypress blocking by chinese input method.
 	// t, _ := sys.GetCurrentInputMethod()
 
-	sys.SwitchInputMethod(sys.ENGLISH_INPUT_METHOD_ID)
+	if id, err := sys.InputMethodID(sys.InputMethodEnglish); err == nil {
+		_ = sys.SwitchInputMethod(id)
+	}
 
 	if save {
 		switch m.previousFocus {

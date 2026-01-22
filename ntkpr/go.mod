@@ -43,6 +43,9 @@ require (
 	golang.org/x/text v0.28.0 // indirect
 )
 
-replace github.com/haochend413/bubbles => ../../bubbles //For development.
+// These are only for development. 
+// replace github.com/haochend413/bubbles => ../../bubbles //For development.
+// replace github.com/charmbracelet/lipgloss => ../../lipgloss //For development.
 
-replace github.com/charmbracelet/lipgloss => ../../lipgloss //For development.
+replace github.com/charmbracelet/lipgloss v1.1.0 => github.com/haochend413/lipgloss v0.3.0
+replace github.com/haochend413/bubbles v0.2.1 => github.com/haochend413/bubbles v0.3.0

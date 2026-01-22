@@ -27,6 +27,10 @@ github.com/clipperhouse/uax29/v2 v2.3.0/go.mod h1:Wn1g7MK6OoeDT0vL+Q0SQLDz/KpfsV
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f h1:Y/CXytFA4m6baUTXGLOoWe4PQhGxaX0KpnayAqC48p4=
 github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f/go.mod h1:vw97MGsxSvLiUE2X8qFplwetxpGLQrlU1Q9AUEIzCaM=
+github.com/haochend413/bubbles v0.3.0 h1:AYUNx93UymaH8MbhmbG5kF8By0QysInc7BQWFqRN2HA=
+github.com/haochend413/bubbles v0.3.0/go.mod h1:Undki7f1eKbTKv3RGmTTKDOpxmLZ0yCHdTOtp4FTsPg=
+github.com/haochend413/lipgloss v0.3.0 h1:xeZEdP1WCWV2ykZP1U0FqLJa6NVvhXRyVmfmI1WsRVU=
+github.com/haochend413/lipgloss v0.3.0/go.mod h1:D4YudnJlpIa3bcKpFSigAEWd31pQMgYu3pFE94b/1mc=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD/E=

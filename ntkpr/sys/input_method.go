@@ -1,8 +1,12 @@
+//go:build darwin
+// +build darwin
+
 package sys
 
 /*
 #cgo LDFLAGS: -framework Carbon
 #include <Carbon/Carbon.h>
+#include <stdlib.h>
 */
 import "C"
 import (
@@ -66,9 +70,11 @@ func GetCurrentInputMethod() (InputMethodType, string) {
 
 // SwitchInputMethod switches macOS input method by InputSourceID
 func SwitchInputMethod(id string) error {
+	cID := C.CString(id)
+	defer C.free(unsafe.Pointer(cID))
 	cfStr := C.CFStringCreateWithCString(
 		C.kCFAllocatorDefault,
-		C.CString(id),
+		cID,
 		C.kCFStringEncodingUTF8,
 	)
 	if cfStr == 0 {
