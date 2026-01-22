@@ -21,7 +21,8 @@ var BaseTableStyle = table.Styles{
 var FocusedTableStyle = table.Styles{
 	Header: lipgloss.NewStyle().
 		Bold(true).
-		Padding(0, 0),
+		Padding(0, 0).
+		Foreground(lipgloss.Color("252")),
 
 	Cell: lipgloss.NewStyle().
 		Padding(0, 0),
