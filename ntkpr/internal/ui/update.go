@@ -45,8 +45,8 @@ var tableKeys = tableKeyMap{
 	Privatize:     key.NewBinding(key.WithKeys("ctrl+p")),
 	GoToEdit:      key.NewBinding(key.WithKeys("e", "ctrl+e")),
 	ViewChangelog: key.NewBinding(key.WithKeys("ctrl+l")),
-	UpTable:       key.NewBinding(key.WithKeys("l")),
-	DownTable:     key.NewBinding(key.WithKeys("h")),
+	UpTable:       key.NewBinding(key.WithKeys("l", "left")),
+	DownTable:     key.NewBinding(key.WithKeys("h", "right")),
 }
 
 // Edit focus keys
