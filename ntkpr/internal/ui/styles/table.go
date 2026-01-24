@@ -31,3 +31,17 @@ var FocusedTableStyle = table.Styles{
 		Background(lipgloss.Color("20")). // purple
 		Bold(true),
 }
+
+var FocusedTableStyleOnEdit = table.Styles{
+	Header: lipgloss.NewStyle().
+		Bold(true).
+		Padding(0, 0).
+		Foreground(lipgloss.Color("252")),
+
+	Cell: lipgloss.NewStyle().
+		Padding(0, 0),
+	Selected: lipgloss.NewStyle().
+		Foreground(lipgloss.Color("226")).
+		Background(lipgloss.Color("239")). // grey
+		Bold(true),
+}

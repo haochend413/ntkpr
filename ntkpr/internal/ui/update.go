@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/haochend413/bubbles/key"
 	"github.com/haochend413/bubbles/table"
@@ -66,6 +68,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case tickMsg:
+		m.statusBar.GetTag("Time").SetValue(time.Time(msg).Format("15:04:05"))
+
+		var lastUpdated time.Time
+		switch m.focus {
+		case FocusThreads:
+			lastUpdated = m.app.GetCurrentThreadUpdatedAt()
+		case FocusBranches:
+			lastUpdated = m.app.GetCurrentBranchUpdatedAt()
+		default: // Notes, Edit, Changelog -> show current note
+			lastUpdated = m.app.GetCurrentNoteUpdatedAt()
+		}
+
+		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(lastUpdated))
+		return m, tick()
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -152,6 +170,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.changeTable.SetHeight(changeTableHeight)
 
 	case tea.KeyMsg:
+		// update statusbar
+		m.statusBar.GetTag("Action").SetValue(msg.String())
 		// Handle global keys first
 		switch {
 		case key.Matches(msg, globalKeys.QuitApp):

@@ -30,6 +30,9 @@ const (
 	FocusChangelog
 )
 
+// tickMsg is used to update the UI clock every second.
+type tickMsg time.Time
+
 // Model represents the Bubble Tea model
 type Model struct {
 	app             *app.App
@@ -111,21 +114,21 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	)
 
 	// Configure all left elements in sequence
-	sb.GetLeft(0).SetValue("Context: Default").SetColors("0", "39").SetWidth(25)
+	sb.GetLeft(0).SetValue("Context: Default").SetColors("252", "237").SetWidth(25)
 
-	sb.GetLeft(1).SetValue("NoteID: -").SetColors("0", "45").SetWidth(15)
-	sb.GetLeft(2).SetValue("Updated: Never").SetColors("0", "37").SetWidth(20)
-	sb.GetLeft(3).SetValue("Version: 1.0").SetColors("0", "33").SetWidth(15)
+	sb.GetLeft(1).SetValue("NoteID: -").SetColors("250", "238").SetWidth(15)
+	sb.GetLeft(2).SetValue("Updated: Never").SetColors("250", "239").SetWidth(20)
+	sb.GetLeft(3).SetValue("Version: 1.0").SetColors("250", "240").SetWidth(15)
 	//set tags for quick and consistent access
 	sb.SetTag(sb.GetLeft(0), "filter")
-	sb.SetTag(sb.GetLeft(1), "NoteID")
+	sb.SetTag(sb.GetLeft(1), "ID")
 	sb.SetTag(sb.GetLeft(2), "LastUpdated")
 	sb.SetTag(sb.GetLeft(3), "Version")
 
 	// Configure all right elements in sequence
-	sb.GetRight(0).SetValue("").SetColors("0", "46").SetWidth(12)
-	sb.GetRight(1).SetValue("Synced").SetColors("0", "208").SetWidth(15)
-	sb.GetRight(2).SetValue(time.Now().Format("15:04:05")).SetColors("0", "226").SetWidth(10)
+	sb.GetRight(0).SetValue("").SetColors("250", "238").SetWidth(12)
+	sb.GetRight(1).SetValue("Synced").SetColors("232", "118").SetWidth(15)
+	sb.GetRight(2).SetValue(time.Now().Format("15:04:05")).SetColors("250", "236").SetWidth(10)
 	sb.SetTag(sb.GetRight(0), "Action")
 	sb.SetTag(sb.GetRight(1), "Synced")
 	sb.SetTag(sb.GetRight(2), "Time")
@@ -194,9 +197,15 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 // Init initializes the Bubble Tea model
 func (m Model) Init() tea.Cmd {
 	// Blink ?
-	cmds := []tea.Cmd{}
-	cmds = append(cmds, textinput.Blink)
-	return tea.Batch(cmds...)
+	// Start the blinking cursor and the ticker for updating seconds
+	return tea.Batch(textinput.Blink, tick())
+}
+
+// tick returns a command that sends a tickMsg every second.
+func tick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
 }
 
 // NOTE: This only renders the table. Context switching must be done separately via app.UpdateCurrentList()
@@ -369,12 +378,41 @@ func (m *Model) updateChangelogTable() {
 	m.changeTable.SetRows(rows)
 }
 
-func (m *Model) printSync(sync bool) string {
-	if sync {
-		return "Synced"
+func (m *Model) printSync() {
+	if m.app.Synced {
+		m.statusBar.GetTag("Synced").SetValue("Synced")
+		m.statusBar.GetTag("Synced").SetColors("232", "118")
 	} else {
-		return "UnSynced"
+		m.statusBar.GetTag("Synced").SetValue("Unsynced")
+		m.statusBar.GetTag("Synced").SetColors("232", "208")
 	}
+}
+
+// formatTimeAgo returns a human-readable relative time string like "5m ago".
+func formatTimeAgo(t time.Time) string {
+	if t.IsZero() {
+		return "Never"
+	}
+	d := time.Since(t)
+	if d < time.Second*1 {
+		return "just now"
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%ds ago", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm%ds ago", int(d.Minutes()), int(d.Seconds())-60*int(d.Minutes()))
+	}
+	if d < time.Hour*24 {
+		return fmt.Sprintf("%dh%dm ago", int(d.Hours()), int(d.Minutes())-60*int(d.Hours()))
+	}
+	days := int(d.Hours() / 24)
+	if days < 7 {
+		return fmt.Sprintf("%dd%dh ago", days, int(d.Hours())-24*days)
+	}
+	// Fallback to date for older items
+	// return fmt.Sprintf("%ds ago", int(d))
+	return t.Format("01-02 15:04")
 }
 
 func (m *Model) updateStatusBar() {
@@ -383,10 +421,19 @@ func (m *Model) updateStatusBar() {
 	switch m.focus {
 	case FocusThreads:
 		focusName = "Threads"
+		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentThreadID())))
+		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentThreadUpdatedAt()))
+
 	case FocusBranches:
 		focusName = "Branches"
+		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentBranchID())))
+		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentBranchUpdatedAt()))
+
 	case FocusNotes:
 		focusName = "Notes"
+		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentNoteID())))
+		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentNoteUpdatedAt()))
+
 	case FocusEdit:
 		focusName = "Edit"
 	case FocusChangelog:
@@ -394,11 +441,9 @@ func (m *Model) updateStatusBar() {
 	}
 
 	m.statusBar.GetTag("filter").SetValue(focusName)
-	m.statusBar.GetTag("NoteID").SetValue(strconv.Itoa(int(m.app.GetCurrentNoteID())))
-	m.statusBar.GetTag("LastUpdated").SetValue(m.app.GetCurrentNoteUpdatedAt().Format("01-02 15:04"))
-	m.statusBar.GetTag("Version").SetValue(strconv.Itoa(m.app.GetCurrentNoteFrequency()))
-	m.statusBar.GetTag("Synced").SetValue(m.printSync(m.app.Synced))
-	m.statusBar.GetTag("Time").SetValue(time.Now().Format("15:04"))
+	m.statusBar.GetTag("Version").SetValue(strconv.Itoa(m.app.GetCurrentNoteFrequency()) + " edits")
+	m.printSync()
+	m.statusBar.GetTag("Time").SetValue(time.Now().Format("15:04:05"))
 }
 
 // Here we need handling of change Table which requires extra design.
