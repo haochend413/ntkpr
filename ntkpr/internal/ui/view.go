@@ -14,11 +14,38 @@ func (m Model) View() string {
 	// Main content height
 	mainContentHeight := m.height - 3 // Reserve 3 lines for help + status bar
 
-	// Render left side (three tables stacked vertically: threads, branches, notes)
-	threadsBox := m.renderThreadsTableBox()
-	branchesBox := m.renderBranchesTableBox()
-	notesBox := m.renderNotesTableBox()
-
+	// Render left side: always show all three tables. When editing, render the previously
+	// focused table with the OnEdit style and the others with Base style.
+	var threadsBox, branchesBox, notesBox string
+	if m.focus == FocusEdit {
+		// Apply styles for rendering (mutating here is fine — rendering reflects current mode)
+		if m.previousFocus == FocusThreads {
+			m.threadsTable.SetStyles(styles.FocusedTableStyleOnEdit)
+			m.branchesTable.SetStyles(styles.BaseTableStyle)
+			m.notesTable.SetStyles(styles.BaseTableStyle)
+			threadsBox = styles.FocusedStyle.BorderTitle(" [1]-Threads (Editing) ").Render(m.threadsTable.View())
+			branchesBox = styles.BaseStyle.BorderTitle("Branches").Render(m.branchesTable.View())
+			notesBox = styles.BaseStyle.BorderTitle("Notes").Render(m.notesTable.View())
+		} else if m.previousFocus == FocusBranches {
+			m.threadsTable.SetStyles(styles.BaseTableStyle)
+			m.branchesTable.SetStyles(styles.FocusedTableStyleOnEdit)
+			m.notesTable.SetStyles(styles.BaseTableStyle)
+			threadsBox = styles.BaseStyle.BorderTitle("Threads").Render(m.threadsTable.View())
+			branchesBox = styles.FocusedStyle.BorderTitle(" [2]-Branches (Editing) ").Render(m.branchesTable.View())
+			notesBox = styles.BaseStyle.BorderTitle("Notes").Render(m.notesTable.View())
+		} else {
+			m.threadsTable.SetStyles(styles.BaseTableStyle)
+			m.branchesTable.SetStyles(styles.BaseTableStyle)
+			m.notesTable.SetStyles(styles.FocusedTableStyleOnEdit)
+			threadsBox = styles.BaseStyle.BorderTitle("Threads").Render(m.threadsTable.View())
+			branchesBox = styles.BaseStyle.BorderTitle("Branches").Render(m.branchesTable.View())
+			notesBox = styles.FocusedStyle.BorderTitle(" [3]-Notes (Editing) ").Render(m.notesTable.View())
+		}
+	} else {
+		threadsBox = m.renderThreadsTableBox()
+		branchesBox = m.renderBranchesTableBox()
+		notesBox = m.renderNotesTableBox()
+	}
 	leftSide := lipgloss.JoinVertical(lipgloss.Left,
 		threadsBox,
 		branchesBox,
@@ -28,6 +55,11 @@ func (m Model) View() string {
 	// Render right side (textarea and changelog)
 	var editBox string
 	if m.focus == FocusEdit {
+		// re-render previous table
+		switch m.previousFocus {
+		case FocusBranches:
+
+		}
 		editBox = styles.FocusedStyle.BorderTitle(" [4]-Editor ").Render(m.textArea.View())
 	} else {
 		editBox = styles.BaseStyle.BorderTitle("Editor").Render(m.textArea.View())
