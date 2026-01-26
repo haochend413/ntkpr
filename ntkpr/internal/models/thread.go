@@ -16,4 +16,5 @@ type Thread struct {
 	Highlight bool `gorm:"default:false"`
 	Private   bool `gorm:"default:false"`
 	Branches  []*Branch
+	Frequency int `gorm:"not null;default:0"`
 }

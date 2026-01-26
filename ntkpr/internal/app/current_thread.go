@@ -139,6 +139,39 @@ func (a *App) GetCurrentThreadCreatedAt() time.Time {
 	return thread.CreatedAt
 }
 
+// IncrementCurrentThreadFrequency increments the current thread's frequency by 1
+// and marks it updated for syncing and hooks.
+func (a *App) IncrementCurrentThreadFrequency() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	thread := a.getCurrentThread()
+	if thread == nil {
+		return
+	}
+
+	thread.Frequency += 1
+	thread.UpdatedAt = time.Now()
+	a.Synced = false
+
+	edit := &editstack.Edit{ID: thread.ID, EditType: editstack.UpdateThread}
+	if err := a.editMgr.AddEdit(edit); err != nil {
+		log.Printf("Error tracking thread frequency increment: %v", err)
+	}
+}
+
+// GetCurrentThreadFrequency returns the edit count (frequency) of the current thread
+func (a *App) GetCurrentThreadFrequency() int {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	thread := a.getCurrentThread()
+	if thread == nil {
+		return 0
+	}
+	return thread.Frequency
+}
+
 // HasCurrentThread checks if a thread is currently selected
 func (a *App) HasCurrentThread() bool {
 	a.mutex.Lock()
@@ -168,6 +201,7 @@ func (a *App) SetCurrentThreadName(name string) {
 
 	thread.Name = name
 	thread.UpdatedAt = time.Now()
+	thread.Frequency += 1
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: thread.ID, EditType: editstack.UpdateThread}

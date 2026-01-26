@@ -123,7 +123,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	sb.SetTag(sb.GetLeft(0), "filter")
 	sb.SetTag(sb.GetLeft(1), "ID")
 	sb.SetTag(sb.GetLeft(2), "LastUpdated")
-	sb.SetTag(sb.GetLeft(3), "Version")
+	sb.SetTag(sb.GetLeft(3), "Frequency")
 
 	// Configure all right elements in sequence
 	sb.GetRight(0).SetValue("").SetColors("250", "238").SetWidth(12)
@@ -423,16 +423,19 @@ func (m *Model) updateStatusBar() {
 		focusName = "Threads"
 		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentThreadID())))
 		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentThreadUpdatedAt()))
+		m.statusBar.GetTag("Frequency").SetValue(strconv.Itoa(m.app.GetCurrentThreadFrequency()) + " edits")
 
 	case FocusBranches:
 		focusName = "Branches"
 		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentBranchID())))
 		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentBranchUpdatedAt()))
+		m.statusBar.GetTag("Frequency").SetValue(strconv.Itoa(m.app.GetCurrentBranchFrequency()) + " edits")
 
 	case FocusNotes:
 		focusName = "Notes"
 		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentNoteID())))
 		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentNoteUpdatedAt()))
+		m.statusBar.GetTag("Frequency").SetValue(strconv.Itoa(m.app.GetCurrentNoteFrequency()) + " edits")
 
 	case FocusEdit:
 		focusName = "Edit"
@@ -441,7 +444,6 @@ func (m *Model) updateStatusBar() {
 	}
 
 	m.statusBar.GetTag("filter").SetValue(focusName)
-	m.statusBar.GetTag("Version").SetValue(strconv.Itoa(m.app.GetCurrentNoteFrequency()) + " edits")
 	m.printSync()
 	m.statusBar.GetTag("Time").SetValue(time.Now().Format("15:04:05"))
 }

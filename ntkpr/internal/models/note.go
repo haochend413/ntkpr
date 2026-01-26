@@ -8,7 +8,7 @@ type Note struct {
 	Content   string
 	Highlight bool      `gorm:"default:false"`
 	Private   bool      `gorm:"default:false"`
-	Frequency int       // calculated as the number of times that is edited
+	Frequency int       `gorm:"not null;default:0"`
 	Branches  []*Branch `gorm:"many2many:branch_notes;constraint:OnDelete:CASCADE;"`
 	ThreadID  uint      // Foreign key - note belongs to a single thread
 }

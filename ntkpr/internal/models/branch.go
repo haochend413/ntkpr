@@ -15,4 +15,5 @@ type Branch struct {
 	Highlight  bool    `gorm:"default:false"`
 	Private    bool    `gorm:"default:false"`
 	Notes      []*Note `gorm:"many2many:branch_notes;constraint:OnDelete:CASCADE;"` // Maybe we can improve it ? Let's first keep it this way.
+	Frequency  int     `gorm:"not null;default:0"`
 }

@@ -170,6 +170,7 @@ func (d *DB) persistNote(note *models.Note, isCreate bool) error {
 	// Topics removed: only persist note and its branch associations
 	var result *gorm.DB
 	if isCreate {
+		note.ID = 0
 		result = d.Conn.Omit("Branches").Create(note) // Omit to prevent auto-insert
 	} else {
 		result = d.Conn.Save(note)

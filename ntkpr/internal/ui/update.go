@@ -62,12 +62,32 @@ var editKeys = editKeyMap{
 	Cancel:        key.NewBinding(key.WithKeys("ctrl+x")),
 }
 
+// Msgs
+
+type SaveItemMsg struct {
+	Type    string
+	Updated bool
+}
+
 // Update handles UI events and updates the model
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case SaveItemMsg:
+		// check type and save
+		if msg.Updated {
+			switch msg.Type {
+			case "note":
+				m.app.IncrementCurrentThreadFrequency()
+				m.app.IncrementCurrentBranchFrequency()
+
+			case "branch":
+				m.app.IncrementCurrentThreadFrequency()
+			}
+		}
+		return m, nil
 	case tickMsg:
 		m.statusBar.GetTag("Time").SetValue(time.Time(msg).Format("15:04:05"))
 
@@ -191,8 +211,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Tab cycles through three tables only: Threads -> Branches -> Notes -> Threads
 			// Edit and Changelog can only be accessed via specific keys (e/ctrl+e and ctrl+l)
 			if m.focus == FocusEdit {
-				m.ExitEdit(true)
-				return m, nil
+				cmd1 := m.ExitEdit(true)
+				return m, cmd1
 			}
 			if m.focus == FocusChangelog {
 				// If in changelog, tab does nothing
@@ -454,12 +474,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case FocusEdit:
 			switch {
 			case key.Matches(msg, editKeys.SaveAndReturn):
-				m.ExitEdit(true)
-				return m, nil
+				cmd1 := m.ExitEdit(true)
+				return m, cmd1
 
 			case key.Matches(msg, editKeys.Cancel):
-				m.ExitEdit(false)
-				return m, nil
+				cmd1 := m.ExitEdit(false)
+				return m, cmd1
 			}
 		}
 
@@ -577,7 +597,7 @@ func (m *Model) EnterEdit(from FocusState) {
 }
 
 // ExitEdit leaves edit mode, optionally saving, and returns to previous focus
-func (m *Model) ExitEdit(save bool) {
+func (m *Model) ExitEdit(save bool) tea.Cmd {
 	// after we exit, we should always switch to english input method to prevent keypress blocking by chinese input method.
 	// t, _ := sys.GetCurrentInputMethod()
 
@@ -585,23 +605,35 @@ func (m *Model) ExitEdit(save bool) {
 		_ = sys.SwitchInputMethod(id)
 	}
 
+	itemtype := ""
+
 	if save {
 		switch m.previousFocus {
 		case FocusThreads:
 			m.app.SetCurrentThreadSummary(m.textArea.Value())
 			m.updateThreadsTable()
+			itemtype = "thread"
 		case FocusBranches:
 			m.app.SetCurrentBranchSummary(m.textArea.Value())
 			m.updateBranchesTable()
+			itemtype = "branch"
 		case FocusNotes:
 			m.app.SetCurrentNoteContent(m.textArea.Value())
 			m.updateNotesTable()
+			itemtype = "note"
 		}
 	}
 	m.focus = m.previousFocus
 	m.textArea.Blur()
 	m.focusCurrentTable()
 	m.updateStatusBar()
+
+	return func() tea.Msg {
+		return SaveItemMsg{
+			Type:    itemtype,
+			Updated: save,
+		}
+	}
 }
 
 func (m *Model) blurAllTables() {

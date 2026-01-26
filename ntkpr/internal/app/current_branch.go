@@ -139,6 +139,39 @@ func (a *App) GetCurrentBranchCreatedAt() time.Time {
 	return branch.CreatedAt
 }
 
+// IncrementCurrentBranchFrequency increments the current branch's frequency by 1
+// and marks it updated for syncing and hooks.
+func (a *App) IncrementCurrentBranchFrequency() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	branch := a.getCurrentBranch()
+	if branch == nil {
+		return
+	}
+
+	branch.Frequency += 1
+	branch.UpdatedAt = time.Now()
+	a.Synced = false
+
+	edit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
+	if err := a.editMgr.AddEdit(edit); err != nil {
+		log.Printf("Error tracking branch frequency increment: %v", err)
+	}
+}
+
+// GetCurrentBranchFrequency returns the edit count (frequency) of the current branch
+func (a *App) GetCurrentBranchFrequency() int {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	branch := a.getCurrentBranch()
+	if branch == nil {
+		return 0
+	}
+	return branch.Frequency
+}
+
 // HasCurrentBranch checks if a branch is currently selected
 func (a *App) HasCurrentBranch() bool {
 	a.mutex.Lock()
@@ -168,6 +201,7 @@ func (a *App) SetCurrentBranchName(name string) {
 
 	branch.Name = name
 	branch.UpdatedAt = time.Now()
+	branch.Frequency += 1
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
@@ -198,6 +232,7 @@ func (a *App) SetCurrentBranchSummary(summary string) {
 		branch.Name = summary
 	}
 	branch.UpdatedAt = time.Now()
+	branch.Frequency += 1
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
