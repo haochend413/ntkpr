@@ -218,15 +218,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// If in changelog, tab does nothing
 				return m, nil
 			}
-			// Cycle focus: Threads -> Branches -> Notes -> Threads
-			switch m.focus {
-			case FocusThreads:
-				m.SetFocus(FocusBranches)
-			case FocusBranches:
-				m.SetFocus(FocusNotes)
-			case FocusNotes:
-				m.SetFocus(FocusThreads)
-			}
 			return m, nil
 		}
 

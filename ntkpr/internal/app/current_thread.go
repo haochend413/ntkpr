@@ -233,6 +233,7 @@ func (a *App) SetCurrentThreadSummary(summary string) {
 		thread.Name = summary
 	}
 	thread.UpdatedAt = time.Now()
+	thread.Frequency += 1
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: thread.ID, EditType: editstack.UpdateThread}
