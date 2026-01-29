@@ -152,7 +152,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	// Prompt styling (the ">" symbol)
 	// ta.Prompt = "❯ "
 	// ta.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
-	textArea.Placeholder = "Write stuff here..." // This should change when we switch between threads / branches / lists
+	textArea.Placeholder = "Start writing! For summary of thread / branch, the first line of this textarea will be assigned to Name entry." // This should change when we switch between threads / branches / lists
 	textArea.SetWidth(50)
 	textArea.SetHeight(10)
 

@@ -227,7 +227,7 @@ func (a *App) SetCurrentThreadSummary(summary string) {
 
 	thread.Summary = summary
 	lines := strings.Split(summary, "\n")
-	if len(lines) > 0 && lines[0] != "" {
+	if len(lines) > 0 {
 		thread.Name = lines[0]
 	} else {
 		thread.Name = summary

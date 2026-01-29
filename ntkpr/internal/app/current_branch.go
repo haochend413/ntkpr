@@ -226,7 +226,7 @@ func (a *App) SetCurrentBranchSummary(summary string) {
 	}
 	branch.Summary = summary
 	lines := strings.Split(summary, "\n")
-	if len(lines) > 0 && lines[0] != "" {
+	if len(lines) > 0 {
 		branch.Name = lines[0]
 	} else {
 		branch.Name = summary
