@@ -139,9 +139,8 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	textArea := textarea_vim.New()
 
 	// Set colors
-	textArea.FocusedStyle.CursorLine = lipgloss.NewStyle().Background(lipgloss.Color("240")).Foreground(lipgloss.Color("15"))
-	textArea.BlurredStyle.CursorLine = lipgloss.NewStyle().Background(lipgloss.Color("240")).Foreground(lipgloss.Color("15"))
-
+	textArea.FocusedStyle.CursorLine = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
+	textArea.BlurredStyle.CursorLine = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
 	// Cursor styling
 	// ta.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 

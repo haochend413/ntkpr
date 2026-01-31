@@ -24,7 +24,7 @@ func (m Model) View() string {
 			m.threadsTable.SetStyles(styles.FocusedTableStyleOnEdit)
 			m.branchesTable.SetStyles(styles.BaseTableStyle)
 			m.notesTable.SetStyles(styles.BaseTableStyle)
-			threadsBox = styles.BaseStyle.BorderTitle(" [1]-Threads (Editing) ").Render(m.threadsTable.View())
+			threadsBox = styles.BaseStyle.BorderTitle("[1]-Threads (Editing)").Render(m.threadsTable.View())
 			branchesBox = styles.BaseStyle.BorderTitle("Branches").Render(m.branchesTable.View())
 			notesBox = styles.BaseStyle.BorderTitle("Notes").Render(m.notesTable.View())
 		case FocusBranches:
@@ -32,7 +32,7 @@ func (m Model) View() string {
 			m.branchesTable.SetStyles(styles.FocusedTableStyleOnEdit)
 			m.notesTable.SetStyles(styles.BaseTableStyle)
 			threadsBox = styles.BaseStyle.BorderTitle("Threads").Render(m.threadsTable.View())
-			branchesBox = styles.BaseStyle.BorderTitle(" [2]-Branches (Editing) ").Render(m.branchesTable.View())
+			branchesBox = styles.BaseStyle.BorderTitle("[2]-Branches (Editing)").Render(m.branchesTable.View())
 			notesBox = styles.BaseStyle.BorderTitle("Notes").Render(m.notesTable.View())
 		default:
 			m.threadsTable.SetStyles(styles.BaseTableStyle)
@@ -40,7 +40,7 @@ func (m Model) View() string {
 			m.notesTable.SetStyles(styles.FocusedTableStyleOnEdit)
 			threadsBox = styles.BaseStyle.BorderTitle("Threads").Render(m.threadsTable.View())
 			branchesBox = styles.BaseStyle.BorderTitle("Branches").Render(m.branchesTable.View())
-			notesBox = styles.BaseStyle.BorderTitle(" [3]-Notes (Editing) ").Render(m.notesTable.View())
+			notesBox = styles.BaseStyle.BorderTitle("[3]-Notes (Editing)").Render(m.notesTable.View())
 		}
 	} else {
 		threadsBox = m.renderThreadsTableBox()
@@ -61,9 +61,9 @@ func (m Model) View() string {
 		case FocusBranches:
 
 		}
-		editBox = styles.FocusedStyle.BorderTitle(" [4]-Editor ").Render(m.textArea.View())
+		editBox = styles.FocusedStyle.BorderTitle("[4]-Editor").Render(m.textArea.View())
 	} else {
-		editBox = styles.BaseStyle.BorderTitle("Editor").Render(m.textArea.View())
+		editBox = styles.BaseStyle.BorderTitle("[4]-Editor").Render(m.textArea.View())
 	}
 
 	changelogBox := m.renderChangelogTableBox()
@@ -110,7 +110,7 @@ func (m Model) View() string {
 func (m Model) renderThreadsTableBox() string {
 	if m.focus == FocusThreads {
 		m.threadsTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.BorderTitle(" [1]-Threads ").Render(m.threadsTable.View())
+		return styles.FocusedStyle.BorderTitle("[1]-Threads").Render(m.threadsTable.View())
 	} else {
 		m.threadsTable.SetStyles(styles.BaseTableStyle)
 		return styles.BaseStyle.BorderTitle("Threads").Render(m.threadsTable.View())
@@ -120,7 +120,7 @@ func (m Model) renderThreadsTableBox() string {
 func (m Model) renderBranchesTableBox() string {
 	if m.focus == FocusBranches {
 		m.branchesTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.BorderTitle(" [2]-Branches ").Render(m.branchesTable.View())
+		return styles.FocusedStyle.BorderTitle("[2]-Branches").Render(m.branchesTable.View())
 	} else {
 		m.branchesTable.SetStyles(styles.BaseTableStyle)
 		return styles.BaseStyle.BorderTitle("Branches").Render(m.branchesTable.View())
@@ -130,7 +130,7 @@ func (m Model) renderBranchesTableBox() string {
 func (m Model) renderNotesTableBox() string {
 	if m.focus == FocusNotes {
 		m.notesTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.BorderTitle(" [3]-Notes ").Render(m.notesTable.View())
+		return styles.FocusedStyle.BorderTitle("[3]-Notes").Render(m.notesTable.View())
 	} else {
 		m.notesTable.SetStyles(styles.BaseTableStyle)
 		return styles.BaseStyle.BorderTitle("Notes").Render(m.notesTable.View())
@@ -140,9 +140,9 @@ func (m Model) renderNotesTableBox() string {
 func (m Model) renderChangelogTableBox() string {
 	if m.focus == FocusChangelog {
 		m.changeTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.BorderTitle(" [5]-Changelog ").Render(m.changeTable.View())
+		return styles.FocusedStyle.BorderTitle("Changelog").Render(m.changeTable.View())
 	} else {
 		m.changeTable.SetStyles(styles.BaseTableStyle)
-		return styles.BaseStyle.BorderTitle("Changelog").Render(m.changeTable.View())
+		return styles.BaseStyle.BorderTitle("[5]-Changelog").Render(m.changeTable.View())
 	}
 }
