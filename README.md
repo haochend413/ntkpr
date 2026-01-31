@@ -1,6 +1,7 @@
 # ntkpr
 
 ![Demo](assets/screenshot.png)
+(Screenshot for ntkpr v0.3)
 
 ## Introduction
 
