@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/haochend413/ntkpr/config"
 	"github.com/haochend413/ntkpr/internal/app"
 	"github.com/haochend413/ntkpr/internal/db"
