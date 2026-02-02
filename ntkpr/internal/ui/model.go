@@ -10,7 +10,7 @@ import (
 	"github.com/haochend413/bubbles/textarea_vim"
 	"github.com/haochend413/bubbles/textinput"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/haochend413/ntkpr/config"
 	"github.com/haochend413/ntkpr/internal/app"

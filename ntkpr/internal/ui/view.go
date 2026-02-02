@@ -1,14 +1,17 @@
 package ui
 
 import (
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/haochend413/ntkpr/internal/ui/styles"
 )
 
 // View renders the UI
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	if !m.ready {
-		return "Initializing..."
+		v := tea.NewView("Initializing...")
+		v.AltScreen = true
+		return v
 	}
 
 	// Main content height
@@ -99,12 +102,14 @@ func (m Model) View() string {
 	// Render status bar
 	statusBarBox := m.statusBar.View()
 
-	// Join everything vertically
-	return lipgloss.JoinVertical(lipgloss.Top,
+	// Join everything vertically and create view
+	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Top,
 		mainContent,
 		help,
 		statusBarBox,
-	)
+	))
+	v.AltScreen = true
+	return v
 }
 
 func (m Model) renderThreadsTableBox() string {
