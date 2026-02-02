@@ -5,9 +5,9 @@
 
 ## Introduction
 
-`ntkpr` is a terminal note management tool that provides TUI interface for note taking and design (more to come) for note management.
+`ntkpr` is a terminal journal management tool that provides TUI interface for note taking and design (more to come) for journal management.
 
-I enjoy writing down plans, thoughts and ideas during daily work and life, and I also like the general style of terminal applications. `ntkpr` is an attempt to digitalize and automate the whole workflow, from which I hope to explore different patterns of note taking and managing.
+I enjoy writing down plans, thoughts and ideas during daily work and life, and I also like the general style of terminal applications. `ntkpr` is an attempt to digitalize and automate the whole workflow, from which I hope to explore different patterns of journal taking and managing.
 
 ## Development
 

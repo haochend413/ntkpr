@@ -13,7 +13,7 @@ var (
 
 	FocusedStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("51")).
+			BorderForeground(lipgloss.Color("2")).
 			Padding(0, 1)
 
 	HelpStyle = lipgloss.NewStyle().

@@ -69,6 +69,7 @@ Right Sleep 800ms
 Right Sleep 800ms
 Left Sleep 800ms
 Left Sleep 800ms
+Type"n" Sleep 800ms
 Type"e" Sleep 800ms
 Enter
 Enter
