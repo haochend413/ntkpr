@@ -3,6 +3,10 @@
 ![Demo](assets/screenshot.png)
 (Screenshot for ntkpr v0.3)
 
+## Important Notices
+
+A straight forward way to install and use this app is cloning this repo, then go to /ntkpr/scripts folder. build.sh will build the executable, and add_to_path.sh will add it to system path. You might wanna configure the shell commands a bit to fit it to your computer.
+
 ## Introduction
 
 `ntkpr` is a terminal journal management tool that provides TUI interface for note taking and design (more to come) for journal management.
@@ -17,6 +21,8 @@ I enjoy writing down plans, thoughts and ideas during daily work and life, and I
 ## Installation Guide
 
 Currently `ntkpr` runs on Linux and macOS.
+
+Prereq: Go. 
 
 ### macOS
 
