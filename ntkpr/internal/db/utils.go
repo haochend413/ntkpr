@@ -8,6 +8,12 @@ import (
 	"github.com/haochend413/ntkpr/internal/models"
 )
 
+/*
+This overall mech is wrong.
+We cannot do this since we assume that database willl just select the next as input.
+This works most time, but a better way is to let db do its own thing.
+*/
+
 func (d *DB) GetFirstNoteID() uint {
 	var id uint
 	err := d.Conn.Model(&models.Note{}).Select("id").Where("deleted_at IS NULL").Order("id ASC").Limit(1).Scan(&id).Error

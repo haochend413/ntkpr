@@ -1,11 +1,16 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // Note represents a note entity
 type Note struct {
 	gorm.Model
 	Content   string
+	LastEdit  time.Time
 	Highlight bool      `gorm:"default:false"`
 	Private   bool      `gorm:"default:false"`
 	Frequency int       `gorm:"not null;default:0"`
