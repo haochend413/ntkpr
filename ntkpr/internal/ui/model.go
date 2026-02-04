@@ -421,23 +421,24 @@ func (m *Model) updateStatusBar() {
 	case FocusThreads:
 		focusName = "Threads"
 		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentThreadID())))
-		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentThreadUpdatedAt()))
+		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentThreadLastEdit()))
 		m.statusBar.GetTag("Frequency").SetValue(strconv.Itoa(m.app.GetCurrentThreadFrequency()) + " edits")
 
 	case FocusBranches:
 		focusName = "Branches"
 		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentBranchID())))
-		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentBranchUpdatedAt()))
+		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentBranchLastEdit()))
 		m.statusBar.GetTag("Frequency").SetValue(strconv.Itoa(m.app.GetCurrentBranchFrequency()) + " edits")
 
 	case FocusNotes:
 		focusName = "Notes"
 		m.statusBar.GetTag("ID").SetValue("#" + strconv.Itoa(int(m.app.GetCurrentNoteID())))
-		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentNoteUpdatedAt()))
+		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(m.app.GetCurrentNoteLastEdit()))
 		m.statusBar.GetTag("Frequency").SetValue(strconv.Itoa(m.app.GetCurrentNoteFrequency()) + " edits")
 
 	case FocusEdit:
 		focusName = "Edit"
+		m.statusBar.GetTag("LastUpdated").SetValue("Editing...")
 	case FocusChangelog:
 		focusName = "Changelog"
 	}
