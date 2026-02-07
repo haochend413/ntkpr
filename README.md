@@ -22,6 +22,8 @@ I enjoy writing down plans, thoughts and ideas during daily work and life, and I
 
 Currently `ntkpr` runs on Linux and macOS.
 
+Prereq: Go. 
+
 ### macOS
 
 ```bash
