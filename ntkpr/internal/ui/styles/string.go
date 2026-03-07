@@ -1,8 +1,10 @@
 package styles
 
-import (
-	"github.com/charmbracelet/lipgloss"
-)
+// import "charm.land/lipgloss/v2"
+
+import "github.com/haochend413/lipgloss/v2"
+
+// "github.com/charmbracelet/lipgloss"
 
 // UI styles
 var (

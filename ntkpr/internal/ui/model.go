@@ -5,13 +5,29 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/haochend413/bubbles/statusbar"
-	"github.com/haochend413/bubbles/table"
-	"github.com/haochend413/bubbles/textarea_vim"
-	"github.com/haochend413/bubbles/textinput"
+	// "github.com/haochend413/bubbles/table"
+	// "github.com/haochend413/bubbles/textarea_vim"
+	// "github.com/haochend413/bubbles/textinput"
+	// "github.com/haochend413/bubbles/v2/statusbar"
 
+	// "charm.land/bubbles/table"
+	// "charm.land/bubbles/textinput"
+	"github.com/haochend413/bubbles/v2/table"
+	// "github.com/haochend413/bubbles/textarea_vim"
+	"github.com/haochend413/bubbles/v2/textinput"
+
+	// "charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss"
+	// "charm.land/lipgloss/v2"
+
+	// "github.com/charmbracelet/lipgloss"
+	"github.com/haochend413/bubbles/v2/statusbar"
+	// "charm.land/bubbles/v2/table"
+	// "charm.land/bubbles/v2/textinput"
+
+	"github.com/haochend413/bubbles/v2/textarea_vim"
+	// "charm.land/bubbles/v2/textarea_vim"
+	"github.com/haochend413/lipgloss/v2"
 	"github.com/haochend413/ntkpr/config"
 	"github.com/haochend413/ntkpr/internal/app"
 	"github.com/haochend413/ntkpr/internal/models"
@@ -138,19 +154,13 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 
 	textArea := textarea_vim.New()
 
-	// Set colors
-	textArea.FocusedStyle.CursorLine = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
-	textArea.BlurredStyle.CursorLine = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
-	// Cursor styling
-	// ta.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	// Set colors - get styles, modify, and set back
+	styles := textArea.Styles()
+	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
+	styles.Focused.CursorLine = cursorStyle
+	styles.Blurred.CursorLine = cursorStyle
+	textArea.SetStyles(styles)
 
-	// // Placeholder styling
-	// ta.FocusedStyle.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	// ta.BlurredStyle.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-
-	// Prompt styling (the ">" symbol)
-	// ta.Prompt = "❯ "
-	// ta.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
 	textArea.Placeholder = "Start writing! For summary of thread / branch, the first line of this textarea will be assigned to Name entry." // This should change when we switch between threads / branches / lists
 	textArea.SetWidth(50)
 	textArea.SetHeight(10)

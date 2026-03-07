@@ -2,7 +2,11 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/haochend413/lipgloss/v2"
+
+	// "charm.land/lipgloss/v2"
+
+	// "github.com/charmbracelet/lipgloss"
 	"github.com/haochend413/ntkpr/internal/ui/styles"
 )
 
@@ -106,7 +110,7 @@ func (m Model) View() tea.View {
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Top,
 		mainContent,
 		help,
-		statusBarBox,
+		statusBarBox.Content,
 	))
 	v.AltScreen = true
 	return v

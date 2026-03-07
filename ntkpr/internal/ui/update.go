@@ -3,10 +3,16 @@ package ui
 import (
 	"time"
 
+	"github.com/haochend413/bubbles/v2/key"
+	// "charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
-	"github.com/haochend413/bubbles/key"
-	"github.com/haochend413/bubbles/table"
+
+	// "github.com/haochend413/bubbles/table"
+	"github.com/haochend413/bubbles/v2/table"
 	"github.com/haochend413/ntkpr/sys"
+	// "github.com/haochend413/bubbles/key"
+	// "github.com/haochend413/bubbles/table"
+	// "github.com/haochend413/ntkpr/sys"
 )
 
 // Global keys that work in any mode

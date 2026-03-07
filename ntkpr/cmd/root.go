@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 		globalModel = &model
 
 		// Run Bubble Tea program
-		p := tea.NewProgram(model, tea.WithAltScreen())
+		p := tea.NewProgram(model)
 		if _, err := p.Run(); err != nil {
 			log.Fatal(err)
 		}
