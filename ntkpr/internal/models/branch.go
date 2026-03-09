@@ -1,6 +1,10 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 /*
 Each branch contains its own notes, arranged in time order.
@@ -12,6 +16,7 @@ type Branch struct {
 	ThreadID   uint // Foreign key for Thread.
 	Name       string
 	Summary    string
+	LastEdit   time.Time
 	Highlight  bool    `gorm:"default:false"`
 	Private    bool    `gorm:"default:false"`
 	Notes      []*Note `gorm:"many2many:branch_notes;constraint:OnDelete:CASCADE;"` // Maybe we can improve it ? Let's first keep it this way.

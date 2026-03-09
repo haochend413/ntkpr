@@ -91,10 +91,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Updated {
 			switch msg.Type {
 			case "note":
+				m.app.SetCurrentThreadLastEdit()
 				m.app.IncrementCurrentThreadFrequency(nil)
+				m.app.SetCurrentBranchLastEdit()
 				m.app.IncrementCurrentBranchFrequency(nil)
 
 			case "branch":
+				m.app.SetCurrentThreadLastEdit()
 				m.app.IncrementCurrentThreadFrequency(nil)
 			}
 		}
@@ -105,11 +108,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var lastUpdated time.Time
 		switch m.focus {
 		case FocusThreads:
-			lastUpdated = m.app.GetCurrentThreadUpdatedAt()
+			lastUpdated = m.app.GetCurrentThreadLastEdit()
 		case FocusBranches:
-			lastUpdated = m.app.GetCurrentBranchUpdatedAt()
-		default: // Notes, Edit, Changelog -> show current note
-			lastUpdated = m.app.GetCurrentNoteUpdatedAt()
+			lastUpdated = m.app.GetCurrentBranchLastEdit()
+		case FocusNotes: // Notes, Edit, Changelog -> show current note
+			lastUpdated = m.app.GetCurrentNoteLastEdit()
+		case FocusEdit:
+			switch m.previousFocus {
+			case FocusThreads:
+				lastUpdated = m.app.GetCurrentThreadLastEdit()
+			case FocusBranches:
+				lastUpdated = m.app.GetCurrentBranchLastEdit()
+			case FocusNotes: // Notes, Edit, Changelog -> show current note
+				lastUpdated = m.app.GetCurrentNoteLastEdit()
+			}
 		}
 
 		m.statusBar.GetTag("LastUpdated").SetValue(formatTimeAgo(lastUpdated))
@@ -634,6 +646,7 @@ func (m *Model) EnterEdit(from FocusState) {
 		m.textArea.SetValue(m.app.GetCurrentThreadSummary())
 	case FocusBranches:
 		m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+
 	case FocusNotes:
 		m.textArea.SetValue(m.app.GetCurrentNoteContent())
 	}
