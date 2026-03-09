@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -13,6 +15,7 @@ type Thread struct {
 	gorm.Model
 	Name      string
 	Summary   string
+	LastEdit  time.Time
 	Highlight bool `gorm:"default:false"`
 	Private   bool `gorm:"default:false"`
 	Branches  []*Branch

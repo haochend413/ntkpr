@@ -115,6 +115,18 @@ func (a *App) GetCurrentBranchNotes() []*models.Note {
 	return notes
 }
 
+// GetCurrentBranchLastEdit returns the last edit timestamp of the current branch.
+func (a *App) GetCurrentBranchLastEdit() time.Time {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	branch := a.getCurrentBranch()
+	if branch == nil {
+		return time.Time{}
+	}
+	return branch.LastEdit
+}
+
 // GetCurrentBranchUpdatedAt returns when the current branch was last modified
 func (a *App) GetCurrentBranchUpdatedAt() time.Time {
 	a.mutex.Lock()
@@ -200,7 +212,7 @@ func (a *App) SetCurrentBranchName(name string) {
 	}
 
 	branch.Name = name
-	branch.UpdatedAt = time.Now()
+	branch.LastEdit = time.Now()
 	branch.Frequency += 1
 	a.Synced = false
 
@@ -231,7 +243,7 @@ func (a *App) SetCurrentBranchSummary(summary string) {
 	} else {
 		branch.Name = summary
 	}
-	branch.UpdatedAt = time.Now()
+	branch.LastEdit = time.Now()
 	branch.Frequency += 1
 	a.Synced = false
 
@@ -239,6 +251,24 @@ func (a *App) SetCurrentBranchSummary(summary string) {
 	if err := a.editMgr.AddEdit(edit); err != nil {
 		log.Printf("Error tracking branch update: %v", err)
 	}
+}
+
+// SetCurrentBranchLastEdit updates the LastEdit timestamp of the current branch to the current time.
+// Ensures the timestamp is not set to a past time.
+func (a *App) SetCurrentBranchLastEdit() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	branch := a.getCurrentBranch()
+	if branch == nil {
+		return
+	}
+
+	// dont set it backwards
+	if time.Now().Before(branch.LastEdit) {
+		return
+	}
+	branch.LastEdit = time.Now()
 }
 
 // ToggleCurrentBranchHighlight toggles the highlight status of the current branch

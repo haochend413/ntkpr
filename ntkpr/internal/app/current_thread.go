@@ -115,6 +115,18 @@ func (a *App) GetCurrentThreadBranches() []*models.Branch {
 	return branches
 }
 
+// GetCurrentThreadLastEdit returns the last edit timestamp of the current thread.
+func (a *App) GetCurrentThreadLastEdit() time.Time {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	thread := a.getCurrentThread()
+	if thread == nil {
+		return time.Time{}
+	}
+	return thread.LastEdit
+}
+
 // GetCurrentThreadUpdatedAt returns when the current thread was last modified
 func (a *App) GetCurrentThreadUpdatedAt() time.Time {
 	a.mutex.Lock()
@@ -200,7 +212,7 @@ func (a *App) SetCurrentThreadName(name string) {
 	}
 
 	thread.Name = name
-	thread.UpdatedAt = time.Now()
+	thread.LastEdit = time.Now()
 	thread.Frequency += 1
 	a.Synced = false
 
@@ -232,7 +244,7 @@ func (a *App) SetCurrentThreadSummary(summary string) {
 	} else {
 		thread.Name = summary
 	}
-	thread.UpdatedAt = time.Now()
+	thread.LastEdit = time.Now()
 	thread.Frequency += 1
 	a.Synced = false
 
@@ -240,6 +252,24 @@ func (a *App) SetCurrentThreadSummary(summary string) {
 	if err := a.editMgr.AddEdit(edit); err != nil {
 		log.Printf("Error tracking thread update: %v", err)
 	}
+}
+
+// SetCurrentThreadLastEdit updates the LastEdit timestamp of the current thread to the current time.
+// Ensures the timestamp is not set to a past time.
+func (a *App) SetCurrentThreadLastEdit() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	thread := a.getCurrentThread()
+	if thread == nil {
+		return
+	}
+
+	// dont set it backwards
+	if time.Now().Before(thread.LastEdit) {
+		return
+	}
+	thread.LastEdit = time.Now()
 }
 
 // ToggleCurrentThreadHighlight toggles the highlight status of the current thread
