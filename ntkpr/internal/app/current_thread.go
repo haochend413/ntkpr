@@ -141,7 +141,7 @@ func (a *App) GetCurrentThreadCreatedAt() time.Time {
 
 // IncrementCurrentThreadFrequency increments the current thread's frequency by 1
 // and marks it updated for syncing and hooks.
-func (a *App) IncrementCurrentThreadFrequency() {
+func (a *App) IncrementCurrentThreadFrequency(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -155,7 +155,7 @@ func (a *App) IncrementCurrentThreadFrequency() {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: thread.ID, EditType: editstack.UpdateThread}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking thread frequency increment: %v", err)
 	}
 }
@@ -185,7 +185,7 @@ func (a *App) HasCurrentThread() bool {
 // =============================================================================
 
 // SetCurrentThreadName updates the current thread's name with edit tracking
-func (a *App) SetCurrentThreadName(name string) {
+func (a *App) SetCurrentThreadName(name string, link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -205,13 +205,13 @@ func (a *App) SetCurrentThreadName(name string) {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: thread.ID, EditType: editstack.UpdateThread}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking thread update: %v", err)
 	}
 }
 
 // SetCurrentThreadSummary updates the current thread's summary with edit tracking
-func (a *App) SetCurrentThreadSummary(summary string) {
+func (a *App) SetCurrentThreadSummary(summary string, link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -237,13 +237,13 @@ func (a *App) SetCurrentThreadSummary(summary string) {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: thread.ID, EditType: editstack.UpdateThread}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking thread update: %v", err)
 	}
 }
 
 // ToggleCurrentThreadHighlight toggles the highlight status of the current thread
-func (a *App) ToggleCurrentThreadHighlight() {
+func (a *App) ToggleCurrentThreadHighlight(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -257,13 +257,13 @@ func (a *App) ToggleCurrentThreadHighlight() {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: thread.ID, EditType: editstack.UpdateThread}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking thread update: %v", err)
 	}
 }
 
 // ToggleCurrentThreadPrivate toggles the private status of the current thread
-func (a *App) ToggleCurrentThreadPrivate() {
+func (a *App) ToggleCurrentThreadPrivate(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -277,7 +277,7 @@ func (a *App) ToggleCurrentThreadPrivate() {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: thread.ID, EditType: editstack.UpdateThread}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking thread update: %v", err)
 	}
 }
@@ -287,7 +287,7 @@ func (a *App) ToggleCurrentThreadPrivate() {
 // =============================================================================
 
 // DeleteCurrentThread removes the current thread and all its branches and tracks the deletion
-func (a *App) DeleteCurrentThread() {
+func (a *App) DeleteCurrentThread(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -307,7 +307,7 @@ func (a *App) DeleteCurrentThread() {
 	} else if threadID != 0 {
 		// Thread exists in DB - mark for deletion (will cascade to branches)
 		deleteEdit := &editstack.Edit{ID: threadID, EditType: editstack.DeleteThread}
-		if err := a.editMgr.AddEdit(deleteEdit); err != nil {
+		if err := a.editMgr.AddEdit(deleteEdit, link); err != nil {
 			log.Printf("Error tracking thread deletion: %v", err)
 			return
 		}

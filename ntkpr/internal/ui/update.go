@@ -9,6 +9,7 @@ import (
 
 	// "github.com/haochend413/bubbles/table"
 	"github.com/haochend413/bubbles/v2/table"
+	"github.com/haochend413/ntkpr/internal/models"
 	"github.com/haochend413/ntkpr/sys"
 	// "github.com/haochend413/bubbles/key"
 	// "github.com/haochend413/bubbles/table"
@@ -40,6 +41,7 @@ type tableKeyMap struct {
 	Privatize     key.Binding // Toggle private
 	GoToEdit      key.Binding // Go directly to edit mode
 	ViewChangelog key.Binding // View changelog
+	ViewRecent    key.Binding // Toggle recent edits view
 	UpTable       key.Binding // Move to table above (non-circular)
 	DownTable     key.Binding // Move to table below (non-circular)
 }
@@ -53,6 +55,7 @@ var tableKeys = tableKeyMap{
 	Privatize:     key.NewBinding(key.WithKeys("ctrl+p")),
 	GoToEdit:      key.NewBinding(key.WithKeys("e", "ctrl+e")),
 	ViewChangelog: key.NewBinding(key.WithKeys("ctrl+l")),
+	ViewRecent:    key.NewBinding(key.WithKeys("R")),
 	UpTable:       key.NewBinding(key.WithKeys("l", "left")),
 	DownTable:     key.NewBinding(key.WithKeys("h", "right")),
 }
@@ -80,17 +83,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
+	// find current ids.
+	curr_spl := models.Superlink{ThreadID: int(m.app.GetCurrentThreadID()), BranchID: int(m.app.GetCurrentBranchID()), NoteID: int(m.app.GetCurrentNoteID())}
 	switch msg := msg.(type) {
 	case SaveItemMsg:
 		// check type and save
 		if msg.Updated {
 			switch msg.Type {
 			case "note":
-				m.app.IncrementCurrentThreadFrequency()
-				m.app.IncrementCurrentBranchFrequency()
+				m.app.IncrementCurrentThreadFrequency(nil)
+				m.app.IncrementCurrentBranchFrequency(nil)
 
 			case "branch":
-				m.app.IncrementCurrentThreadFrequency()
+				m.app.IncrementCurrentThreadFrequency(nil)
 			}
 		}
 		return m, nil
@@ -158,6 +163,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "Flags", Width: flagWidth},
 		}
 
+		recentColumns := []table.Column{
+			{Title: "Thread", Width: max(20, int(float64(m.width)*0.25))},
+			{Title: "Branch", Width: max(20, int(float64(m.width)*0.25))},
+			{Title: "Note", Width: max(20, int(float64(m.width)*0.35))},
+			{Title: "Flags", Width: max(8, int(float64(m.width)*0.08))},
+		}
+
+		// Calculate recent table width as sum of its columns
+		recentTableWidth := max(20, int(float64(m.width)*0.25)) +
+			max(20, int(float64(m.width)*0.25)) +
+			max(20, int(float64(m.width)*0.35)) +
+			max(8, int(float64(m.width)*0.08))
+
 		// Set columns and width for each table with appropriate column types
 		m.threadsTable.SetColumns(threadColumns)
 		m.threadsTable.SetWidth(tableWidth)
@@ -165,6 +183,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.branchesTable.SetWidth(tableWidth)
 		m.notesTable.SetColumns(noteColumns)
 		m.notesTable.SetWidth(tableWidth)
+		m.recentTable.SetColumns(recentColumns)
+		m.recentTable.SetWidth(recentTableWidth)
 
 		// Height calculations
 		mainContentHeight := m.height - 5 // Reserve for help + status bar
@@ -177,7 +197,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.threadsTable.SetHeight(standard_thread_height + 6)
 		m.branchesTable.SetHeight(standard_branch_height)
 		m.notesTable.SetHeight(standard_notes_height)
-
+		m.recentTable.SetHeight(standard_notes_height)
 		// Textarea takes most of right side
 		m.textArea.SetWidth(editWidth)
 		textareaHeight := max(5, int(float64(mainContentHeight)*0.7)) - 1
@@ -217,7 +237,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Tab cycles through three tables only: Threads -> Branches -> Notes -> Threads
 			// Edit and Changelog can only be accessed via specific keys (e/ctrl+e and ctrl+l)
 			if m.focus == FocusEdit {
-				cmd1 := m.ExitEdit(true)
+				cmd1 := m.ExitEdit(true, curr_spl)
 				return m, cmd1
 			}
 			if m.focus == FocusChangelog {
@@ -242,7 +262,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, tableKeys.CreateNew):
-				m.app.CreateNewThread()
+				m.app.CreateNewThread(nil)
 				m.updateThreadsTable()
 				lastIdx := len(m.app.GetThreadList()) - 1
 				if lastIdx >= 0 {
@@ -258,7 +278,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Delete):
-				m.app.DeleteCurrentThread()
+				m.app.DeleteCurrentThread(nil)
 				m.updateThreadsTable()
 				m.updateBranchesTable()
 				m.updateNotesTable()
@@ -299,6 +319,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, tableKeys.DownTable):
 				m.SetFocus(FocusBranches)
 				return m, nil
+
+			case key.Matches(msg, tableKeys.ViewRecent):
+				m.SetFocus(FocusRecent)
+				return m, nil
 			}
 
 		case FocusBranches:
@@ -316,7 +340,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, tableKeys.CreateNew):
-				m.app.CreateNewBranch()
+				m.app.CreateNewBranch(nil)
 				m.updateBranchesTable()
 				lastIdx := len(m.app.GetActiveBranchList()) - 1
 				if lastIdx >= 0 {
@@ -330,7 +354,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Delete):
-				m.app.DeleteCurrentBranch()
+				m.app.DeleteCurrentBranch(nil)
 				m.updateBranchesTable()
 				m.updateNotesTable()
 				threadRows := m.threadsTable.Rows()
@@ -374,6 +398,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, tableKeys.DownTable):
 				m.SetFocus(FocusNotes)
 				return m, nil
+
+			case key.Matches(msg, tableKeys.ViewRecent):
+				m.SetFocus(FocusRecent)
+				return m, nil
 			}
 
 		case FocusNotes:
@@ -390,7 +418,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, tableKeys.CreateNew):
-				m.app.CreateNewNote()
+
+				m.app.CreateNewNote(nil) // let's not track create for now.
 				m.updateNotesTable()
 				lastIdx := len(m.app.GetActiveNoteList()) - 1
 				if lastIdx >= 0 {
@@ -403,7 +432,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Delete):
-				m.app.DeleteCurrentNote()
+				m.app.DeleteCurrentNote(nil) // also not delete
 				m.updateNotesTable()
 				threadRows := m.threadsTable.Rows()
 				branchRows := m.branchesTable.Rows()
@@ -436,12 +465,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Highlight):
-				m.app.ToggleCurrentNoteHighlight()
+				m.app.ToggleCurrentNoteHighlight(&curr_spl)
 				m.updateNotesTable()
 				return m, nil
 
 			case key.Matches(msg, tableKeys.Privatize):
-				m.app.ToggleCurrentNotePrivate()
+				m.app.ToggleCurrentNotePrivate(&curr_spl)
 				m.updateNotesTable()
 				return m, nil
 
@@ -459,6 +488,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, tableKeys.UpTable):
 				m.SetFocus(FocusBranches)
 				return m, nil
+
+			case key.Matches(msg, tableKeys.ViewRecent):
+				m.SetFocus(FocusRecent)
+				return m, nil
+			}
+
+		case FocusRecent:
+			switch {
+			case key.Matches(msg, tableKeys.ViewRecent):
+				// Toggle back to Notes when R is pressed again
+				m.SetFocus(FocusNotes)
+				return m, nil
+			case key.Matches(msg, tableKeys.Back):
+				m.SetFocus(FocusNotes)
+				return m, nil
 			}
 
 		case FocusChangelog:
@@ -471,11 +515,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case FocusEdit:
 			switch {
 			case key.Matches(msg, editKeys.SaveAndReturn):
-				cmd1 := m.ExitEdit(true)
+				cmd1 := m.ExitEdit(true, curr_spl)
 				return m, cmd1
 
 			case key.Matches(msg, editKeys.Cancel):
-				cmd1 := m.ExitEdit(false)
+				cmd1 := m.ExitEdit(false, curr_spl)
 				return m, cmd1
 			}
 		}
@@ -527,6 +571,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case FocusChangelog:
 		m.changeTable, cmd = m.changeTable.Update(msg)
 		cmds = append(cmds, cmd)
+	case FocusRecent:
+		m.recentTable, cmd = m.recentTable.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)
@@ -569,6 +616,8 @@ func (m *Model) SetFocus(focus FocusState) {
 		m.notesTable.SetHeight(standard_notes_height + 6)
 	case FocusChangelog:
 		m.changeTable.Focus()
+	case FocusRecent:
+		m.recentTable.Focus()
 	}
 	m.updateStatusBar()
 }
@@ -594,7 +643,7 @@ func (m *Model) EnterEdit(from FocusState) {
 }
 
 // ExitEdit leaves edit mode, optionally saving, and returns to previous focus
-func (m *Model) ExitEdit(save bool) tea.Cmd {
+func (m *Model) ExitEdit(save bool, curr_spl models.Superlink) tea.Cmd {
 	// after we exit, we should always switch to english input method to prevent keypress blocking by chinese input method.
 	// t, _ := sys.GetCurrentInputMethod()
 
@@ -607,18 +656,19 @@ func (m *Model) ExitEdit(save bool) tea.Cmd {
 	if save {
 		switch m.previousFocus {
 		case FocusThreads:
-			m.app.SetCurrentThreadSummary(m.textArea.Value())
+			m.app.SetCurrentThreadSummary(m.textArea.Value(), nil)
 			m.updateThreadsTable()
 			itemtype = "thread"
 		case FocusBranches:
-			m.app.SetCurrentBranchSummary(m.textArea.Value())
+			m.app.SetCurrentBranchSummary(m.textArea.Value(), nil)
 			m.updateBranchesTable()
 			itemtype = "branch"
 		case FocusNotes:
-			m.app.SetCurrentNoteContent(m.textArea.Value())
+			m.app.SetCurrentNoteContent(m.textArea.Value(), &curr_spl)
 			m.updateNotesTable()
 			itemtype = "note"
 		}
+		m.updateRecentTable() // update recent table if we save
 	}
 	m.focus = m.previousFocus
 	m.textArea.Blur()
@@ -650,6 +700,8 @@ func (m *Model) focusCurrentTable() {
 		m.notesTable.Focus()
 	case FocusChangelog:
 		m.changeTable.Focus()
+	case FocusRecent:
+		m.recentTable.Focus()
 	}
 }
 

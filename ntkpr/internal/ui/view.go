@@ -97,7 +97,7 @@ func (m Model) View() tea.View {
 	} else {
 		// Global/table help derived from tableKeys and globalKeys
 		help = styles.HelpStyle.Render(
-			"Tab: tables • Enter: select • Esc: back/cancel • e: edit • n: new • " +
+			"Tab: tables • Enter: select • Esc: back/cancel • e: edit • n: new • r: recent edits • " +
 				"k/j: move to upper/lower item • l/h: move to upper/lower table • c-d: delete • c-h: highlight • c-p: private • c-l: changelog • " +
 				"c-s: save • c-q: sync • c-c: quit",
 		)
@@ -106,12 +106,39 @@ func (m Model) View() tea.View {
 	// Render status bar
 	statusBarBox := m.statusBar.View()
 
-	// Join everything vertically and create view
-	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Top,
+	// Create base layer with original content
+	baseContent := lipgloss.JoinVertical(lipgloss.Top,
 		mainContent,
 		help,
 		statusBarBox.Content,
-	))
+	)
+
+	// Create compositor for layering
+	// Base layer with original content
+	baseLayer := lipgloss.NewLayer(baseContent).Z(0)
+
+	var compositor *lipgloss.Compositor
+	var output string
+
+	// Only show recent table overlay when explicitly focused on it (via R key)
+	if m.focus == FocusRecent {
+		// Recent table layer positioned in the middle
+		recentTableBox := m.renderRecentTableBox()
+		recentLayer := lipgloss.NewLayer(recentTableBox).
+			X((m.width - lipgloss.Width(recentTableBox)) / 2).
+			Y((m.height - lipgloss.Height(recentTableBox)) / 2).
+			Z(1)
+		// Create compositor with both layers
+		compositor = lipgloss.NewCompositor(baseLayer, recentLayer)
+		output = compositor.Render()
+	} else {
+		// No recent focus, just show base layer
+		compositor = lipgloss.NewCompositor(baseLayer)
+		output = compositor.Render()
+	}
+
+	// Create view with composited output
+	v := tea.NewView(output)
 	v.AltScreen = true
 	return v
 }
@@ -154,4 +181,11 @@ func (m Model) renderChangelogTableBox() string {
 		m.changeTable.SetStyles(styles.BaseTableStyle)
 		return styles.BaseStyle.BorderTitle("[5]-Changelog").Render(m.changeTable.View())
 	}
+}
+
+func (m Model) renderRecentTableBox() string {
+	m.recentTable.SetStyles(styles.FocusedTableStyle)
+	return styles.FocusedStyle.
+		BorderTitle("Recent Edits").
+		Render(m.recentTable.View())
 }
