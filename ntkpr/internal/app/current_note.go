@@ -138,7 +138,7 @@ func (a *App) HasCurrentNote() bool {
 // =============================================================================
 
 // SetCurrentNoteContent updates the current note's content with edit tracking
-func (a *App) SetCurrentNoteContent(content string) {
+func (a *App) SetCurrentNoteContent(content string, link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -158,7 +158,7 @@ func (a *App) SetCurrentNoteContent(content string) {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking note update: %v", err)
 	}
 }
@@ -182,7 +182,7 @@ func (a *App) SetCurrentNoteLastEdit() {
 }
 
 // ToggleCurrentNoteHighlight toggles the highlight status of the current note
-func (a *App) ToggleCurrentNoteHighlight() {
+func (a *App) ToggleCurrentNoteHighlight(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -196,13 +196,13 @@ func (a *App) ToggleCurrentNoteHighlight() {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking note update: %v", err)
 	}
 }
 
 // ToggleCurrentNotePrivate toggles the private status of the current note
-func (a *App) ToggleCurrentNotePrivate() {
+func (a *App) ToggleCurrentNotePrivate(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -216,7 +216,7 @@ func (a *App) ToggleCurrentNotePrivate() {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: note.ID, EditType: editstack.UpdateNote}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking note update: %v", err)
 	}
 }
@@ -227,7 +227,7 @@ func (a *App) ToggleCurrentNotePrivate() {
 // Topic subsystem removed: topic add/remove APIs have been removed.
 
 // DeleteCurrentNote removes the current note from the current branch and tracks the deletion
-func (a *App) DeleteCurrentNote() {
+func (a *App) DeleteCurrentNote(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -244,7 +244,7 @@ func (a *App) DeleteCurrentNote() {
 		a.editMgr.RemoveEdit(editstack.EntityNote, noteID)
 	} else if noteID != 0 {
 		deleteEdit := &editstack.Edit{ID: noteID, EditType: editstack.DeleteNote}
-		if err := a.editMgr.AddEdit(deleteEdit); err != nil {
+		if err := a.editMgr.AddEdit(deleteEdit, link); err != nil {
 			log.Printf("Error tracking note deletion: %v", err)
 			return
 		}
@@ -257,7 +257,7 @@ func (a *App) DeleteCurrentNote() {
 		if !branchExists || branchEdit.EditType != editstack.CreateBranch {
 			// Branch is not pending creation, safe to mark for update
 			updateEdit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
-			a.editMgr.AddEdit(updateEdit) // Ignore error - branch might already be marked
+			a.editMgr.AddEdit(updateEdit, link) // Ignore error - branch might already be marked
 		}
 	}
 

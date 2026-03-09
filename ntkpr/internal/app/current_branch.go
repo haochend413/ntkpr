@@ -153,7 +153,7 @@ func (a *App) GetCurrentBranchCreatedAt() time.Time {
 
 // IncrementCurrentBranchFrequency increments the current branch's frequency by 1
 // and marks it updated for syncing and hooks.
-func (a *App) IncrementCurrentBranchFrequency() {
+func (a *App) IncrementCurrentBranchFrequency(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -167,7 +167,7 @@ func (a *App) IncrementCurrentBranchFrequency() {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking branch frequency increment: %v", err)
 	}
 }
@@ -197,7 +197,7 @@ func (a *App) HasCurrentBranch() bool {
 // =============================================================================
 
 // SetCurrentBranchName updates the current branch's name with edit tracking
-func (a *App) SetCurrentBranchName(name string) {
+func (a *App) SetCurrentBranchName(name string, link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -217,13 +217,13 @@ func (a *App) SetCurrentBranchName(name string) {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking branch update: %v", err)
 	}
 }
 
 // SetCurrentBranchSummary updates the current branch's summary with edit tracking
-func (a *App) SetCurrentBranchSummary(summary string) {
+func (a *App) SetCurrentBranchSummary(summary string, link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -248,7 +248,7 @@ func (a *App) SetCurrentBranchSummary(summary string) {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking branch update: %v", err)
 	}
 }
@@ -272,7 +272,7 @@ func (a *App) SetCurrentBranchLastEdit() {
 }
 
 // ToggleCurrentBranchHighlight toggles the highlight status of the current branch
-func (a *App) ToggleCurrentBranchHighlight() {
+func (a *App) ToggleCurrentBranchHighlight(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -286,13 +286,13 @@ func (a *App) ToggleCurrentBranchHighlight() {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking branch update: %v", err)
 	}
 }
 
 // ToggleCurrentBranchPrivate toggles the private status of the current branch
-func (a *App) ToggleCurrentBranchPrivate() {
+func (a *App) ToggleCurrentBranchPrivate(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -306,7 +306,7 @@ func (a *App) ToggleCurrentBranchPrivate() {
 	a.Synced = false
 
 	edit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error tracking branch update: %v", err)
 	}
 }
@@ -316,7 +316,7 @@ func (a *App) ToggleCurrentBranchPrivate() {
 // =============================================================================
 
 // DeleteCurrentBranch removes the current branch from the current thread and tracks the deletion
-func (a *App) DeleteCurrentBranch() {
+func (a *App) DeleteCurrentBranch(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -336,7 +336,7 @@ func (a *App) DeleteCurrentBranch() {
 	} else if branchID != 0 {
 		// Branch exists in DB - mark for deletion
 		deleteEdit := &editstack.Edit{ID: branchID, EditType: editstack.DeleteBranch}
-		if err := a.editMgr.AddEdit(deleteEdit); err != nil {
+		if err := a.editMgr.AddEdit(deleteEdit, link); err != nil {
 			log.Printf("Error tracking branch deletion: %v", err)
 			return
 		}

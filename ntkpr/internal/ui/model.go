@@ -44,6 +44,7 @@ const (
 	FocusNotes
 	FocusEdit
 	FocusChangelog
+	FocusRecent
 )
 
 // tickMsg is used to update the UI clock every second.
@@ -51,20 +52,28 @@ type tickMsg time.Time
 
 // Model represents the Bubble Tea model
 type Model struct {
-	app             *app.App
-	Config          *config.Config
-	threadsTable    table.Model
-	branchesTable   table.Model
-	notesTable      table.Model
-	textArea        textarea_vim.Model
-	changeTable     table.Model
-	statusBar       statusbar.Model
+	// metadata
+	app    *app.App
+	Config *config.Config
+
+	// windows
+	threadsTable  table.Model
+	branchesTable table.Model
+	notesTable    table.Model
+	textArea      textarea_vim.Model
+	changeTable   table.Model
+	recentTable   table.Model
+	statusBar     statusbar.Model
+
+	//states
 	previousFocus   FocusState
 	focus           FocusState
 	editPrevIMEType sys.InputMethodType
-	width           int
-	height          int
 	ready           bool
+
+	//data
+	width  int
+	height int
 }
 
 // NewModel initializes a new UI model
@@ -78,6 +87,19 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 		temp := config.LoadOrCreateConfig()
 		cfg = &temp
 	}
+
+	recentColumns := []table.Column{
+		{Title: "Thread", Width: 50},
+		{Title: "Branch", Width: 50},
+		{Title: "Note", Width: 70},
+		{Title: "Flags", Width: 16},
+	}
+
+	recentTable := table.New(
+		table.WithColumns(recentColumns),
+		table.WithFocused(true),
+		table.WithHeight(40),
+	)
 
 	noteColumns := []table.Column{
 		{Title: "ID", Width: 4},
@@ -185,6 +207,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 		threadsTable:    threadTable,
 		branchesTable:   branchTable,
 		notesTable:      noteTable,
+		recentTable:     recentTable,
 		textArea:        textArea,
 		statusBar:       sb,
 		changeTable:     changeTable,
@@ -198,6 +221,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	m.updateThreadsTable()
 	m.updateBranchesTable()
 	m.updateNotesTable()
+	m.updateRecentTable()
 	m.updateStatusBar()
 
 	return m
@@ -340,6 +364,7 @@ func (m *Model) updateNotesTable() {
 	m.notesTable.SetRows(rows)
 }
 
+// This is wrong, to be modified
 func (m *Model) updateChangelogTable() {
 	editMap := m.app.GetEditMap()
 	rows := make([]table.Row, 0, len(editMap))
@@ -385,6 +410,90 @@ func (m *Model) updateChangelogTable() {
 	}
 
 	m.changeTable.SetRows(rows)
+}
+
+func (m *Model) updateRecentTable() {
+	noteEdits := m.app.GetNoteEditStack()
+
+	rows := make([]table.Row, len(noteEdits))
+	for i, noteEdit := range noteEdits {
+		link := noteEdit.Link
+
+		// Fetch thread, branch, and note by their IDs
+		var threadName, branchName, noteContent string
+		flags := ""
+
+		// Get thread name
+		if link.ThreadID > 0 {
+			thread := m.app.GetDataMgr().FindThreadByID(uint(link.ThreadID))
+			if thread != nil {
+				threadName = thread.Name
+				if len(threadName) > 48 {
+					threadName = threadName[:45] + "..."
+				}
+				if thread.Highlight {
+					flags += "TH"
+				}
+				if thread.Private {
+					flags += "TP"
+				}
+			} else {
+				threadName = fmt.Sprintf("T#%d", link.ThreadID)
+			}
+		} else {
+			threadName = "-"
+		}
+
+		// Get branch name
+		if link.BranchID > 0 {
+			branch := m.app.GetDataMgr().FindBranchByID(uint(link.BranchID))
+			if branch != nil {
+				branchName = branch.Name
+				if len(branchName) > 48 {
+					branchName = branchName[:45] + "..."
+				}
+				if branch.Highlight {
+					flags += "BH"
+				}
+				if branch.Private {
+					flags += "BP"
+				}
+			} else {
+				branchName = fmt.Sprintf("B#%d", link.BranchID)
+			}
+		} else {
+			branchName = "-"
+		}
+
+		// Get note content
+		if link.NoteID > 0 {
+			note := m.app.GetDataMgr().FindNoteByID(uint(link.NoteID))
+			if note != nil {
+				noteContent = note.Content
+				if len(noteContent) > 68 {
+					noteContent = noteContent[:65] + "..."
+				}
+				if note.Highlight {
+					flags += "NH"
+				}
+				if note.Private {
+					flags += "NP"
+				}
+			} else {
+				noteContent = fmt.Sprintf("N#%d", link.NoteID)
+			}
+		} else {
+			noteContent = "-"
+		}
+
+		rows[i] = table.Row{
+			threadName,
+			branchName,
+			noteContent,
+			flags,
+		}
+	}
+	m.recentTable.SetRows(rows)
 }
 
 func (m *Model) printSync() {

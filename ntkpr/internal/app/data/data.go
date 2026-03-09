@@ -302,3 +302,39 @@ func (dm *DataMgr) RemoveNote(index int) {
 		dm.SwitchActiveNote(dm.activeNotePtr)
 	}
 }
+
+// FindThreadByID finds a thread by ID across all threads
+func (dm *DataMgr) FindThreadByID(id uint) *models.Thread {
+	for _, t := range dm.threads {
+		if t.ID == id {
+			return t
+		}
+	}
+	return nil
+}
+
+// FindBranchByID finds a branch by ID across all threads
+func (dm *DataMgr) FindBranchByID(id uint) *models.Branch {
+	for _, t := range dm.threads {
+		for _, b := range t.Branches {
+			if b.ID == id {
+				return b
+			}
+		}
+	}
+	return nil
+}
+
+// FindNoteByID finds a note by ID across all threads and branches
+func (dm *DataMgr) FindNoteByID(id uint) *models.Note {
+	for _, t := range dm.threads {
+		for _, b := range t.Branches {
+			for _, n := range b.Notes {
+				if n.ID == id {
+					return n
+				}
+			}
+		}
+	}
+	return nil
+}

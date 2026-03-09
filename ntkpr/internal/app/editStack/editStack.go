@@ -69,6 +69,8 @@ package editstack
 
 import (
 	"fmt"
+
+	"github.com/haochend413/ntkpr/internal/models"
 )
 
 type EditType = int
@@ -102,15 +104,22 @@ type EditKey struct {
 
 // This is only note-wise, not string - wise
 // Also there must be a good mechanis around all this.
+// this is bit redundant.
 type Edit struct {
 	ID         uint // We need the same index generating mechanism as in database.
 	EditType   EditType
 	Additional *uint // optional argument, can be the id of branch / note that are added / removed. Purely for demonstration usage.
 }
 
+// We should add edit content later, with color specified with delete / add
+type NoteEdit struct {
+	Link models.Superlink // Export field for external access
+}
+
 type EditMgr struct {
-	EditStack []*Edit           // Time Order, keep this only for recent case. Actually not needed for functionality.
-	EditMap   map[EditKey]*Edit // Keyed by (EntityType, ID) to avoid collisions between notes, branches, and threads
+	NoteEditStack []*NoteEdit
+	EditStack     []*Edit           // Time Order, keep this only for recent case. Actually not needed for functionality.
+	EditMap       map[EditKey]*Edit // Keyed by (EntityType, ID) to avoid collisions between notes, branches, and threads
 }
 
 // getEntityType returns the entity type string for a given EditType
@@ -130,13 +139,14 @@ func getEntityType(tp EditType) string {
 // NewEditMgr creates a new edit manager
 func NewEditMgr() *EditMgr {
 	return &EditMgr{
-		EditStack: make([]*Edit, 0),
-		EditMap:   make(map[EditKey]*Edit),
+		NoteEditStack: make([]*NoteEdit, 0),
+		EditStack:     make([]*Edit, 0),
+		EditMap:       make(map[EditKey]*Edit),
 	}
 }
 
 // This function sets up edit stack according to basic handling logic.
-func (em *EditMgr) AddEdit(curr *Edit) error {
+func (em *EditMgr) AddEdit(curr *Edit, spl *models.Superlink) error {
 	em.EditStack = append(em.EditStack, curr)
 	id := curr.ID
 	tp := curr.EditType
@@ -144,6 +154,13 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 	key := EditKey{EntityType: entityType, ID: id}
 	// add to map, be sure of index !
 	// check
+
+	// create NoteEdit
+	s := models.Superlink{ThreadID: -1, BranchID: -1, NoteID: -1}
+	if spl != nil {
+		s = *spl
+	}
+	ne := NoteEdit{Link: s}
 	if edit, exists := em.EditMap[key]; exists {
 		// Key exists, edit contains the value
 		prevType := edit.EditType
@@ -162,8 +179,11 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 			case CreateNote:
 				// Keep as CreateNote - new note being edited before sync
 				// No change needed, edit.EditType is already CreateNote
+				// append to note edit
+				em.NoteEditStack = append(em.NoteEditStack, &ne)
 			case UpdateNote:
 				// Already marked as UpdateNote, no change needed
+				em.NoteEditStack = append(em.NoteEditStack, &ne)
 			case DeleteNote:
 				return fmt.Errorf("invalid state: attempting to UpdateNote %d that is marked for DeleteNote", id)
 			}
@@ -242,6 +262,10 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 	} else {
 		// Key doesn't exist, this is a new edit
 		em.EditMap[key] = &Edit{ID: id, EditType: tp}
+		// if something about note is passed in, then we append to noteeditstack
+		if spl != nil {
+			em.NoteEditStack = append(em.NoteEditStack, &ne)
+		}
 	}
 
 	return nil
@@ -249,9 +273,12 @@ func (em *EditMgr) AddEdit(curr *Edit) error {
 
 // Clear resets the edit manager
 func (em *EditMgr) Clear() {
+	em.NoteEditStack = make([]*NoteEdit, 0)
 	em.EditStack = make([]*Edit, 0)
 	em.EditMap = make(map[EditKey]*Edit)
 }
+
+// These needs further adaption to NoteEditStack
 
 // RemoveEdit removes an edit from the map (for undo operations)
 func (em *EditMgr) RemoveEdit(entityType string, id uint) {

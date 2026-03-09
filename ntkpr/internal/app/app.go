@@ -53,6 +53,11 @@ func (a *App) GetEditMap() map[editstack.EditKey]*editstack.Edit {
 	return a.editMgr.EditMap
 }
 
+// GetNoteEditStack returns the note edit stack
+func (a *App) GetNoteEditStack() []*editstack.NoteEdit {
+	return a.editMgr.NoteEditStack
+}
+
 // loadData loads threads from the database and initializes data manager
 func (a *App) loadData() {
 	// fetch from db
@@ -77,7 +82,7 @@ func (a *App) loadData() {
 APIs to call, connecting context and database.
 */
 
-func (a *App) CreateNewThread() {
+func (a *App) CreateNewThread(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	thread := &models.Thread{Name: ""}
@@ -87,14 +92,14 @@ func (a *App) CreateNewThread() {
 	a.nextThreadCreateID += 1
 	a.Synced = false
 	edit := &editstack.Edit{EditType: editstack.CreateThread, ID: thread.ID}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error adding Create edit: %v", err)
 		return
 	}
 	a.dataMgr.AddThread(thread)
 }
 
-func (a *App) CreateNewBranch() {
+func (a *App) CreateNewBranch(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	thread := a.dataMgr.GetActiveThread()
@@ -110,7 +115,7 @@ func (a *App) CreateNewBranch() {
 	a.nextBranchCreateID += 1
 	a.Synced = false
 	edit := &editstack.Edit{EditType: editstack.CreateBranch, ID: branch.ID}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error adding Create edit: %v", err)
 		return
 	}
@@ -118,7 +123,7 @@ func (a *App) CreateNewBranch() {
 }
 
 // CreateNewNote creates a new pending note
-func (a *App) CreateNewNote() {
+func (a *App) CreateNewNote(link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	thread := a.dataMgr.GetActiveThread()
@@ -141,7 +146,7 @@ func (a *App) CreateNewNote() {
 	a.Synced = false
 
 	edit := &editstack.Edit{EditType: editstack.CreateNote, ID: note.ID}
-	if err := a.editMgr.AddEdit(edit); err != nil {
+	if err := a.editMgr.AddEdit(edit, link); err != nil {
 		log.Printf("Error adding Create edit: %v", err)
 		return
 	}
@@ -153,7 +158,7 @@ func (a *App) CreateNewNote() {
 		// Branch either doesn't have pending edits or is not being created
 		// Safe to mark for update
 		updateEdit := &editstack.Edit{ID: branch.ID, EditType: editstack.UpdateBranch}
-		a.editMgr.AddEdit(updateEdit) // Ignore error - branch might already be marked
+		a.editMgr.AddEdit(updateEdit, link) // Ignore error - branch might already be marked
 	}
 
 	a.dataMgr.AddNote(note)
