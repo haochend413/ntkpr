@@ -1,8 +1,17 @@
 package styles
 
 import (
-	"github.com/charmbracelet/lipgloss"
-	"github.com/haochend413/bubbles/table"
+	// "charm.land/bubbles/table"
+	// "charm.land/bubbles/table"
+	// "charm.land/bubbles/table"
+	// "charm.land/bubbles/table"
+	// "charm.land/bubbles/table"
+	// "charm.land/bubbles/v2/table"
+	// "charm.land/lipgloss/v2"
+	"github.com/haochend413/lipgloss/v2"
+	// "github.com/haochend413/lipgloss"
+	// "github.com/charmbracelet/lipgloss"
+	"github.com/haochend413/bubbles/v2/table"
 )
 
 var BaseTableStyle = table.Styles{
@@ -15,7 +24,6 @@ var BaseTableStyle = table.Styles{
 		Padding(0, 0),
 	Selected: lipgloss.NewStyle().
 		Foreground(lipgloss.Color("226")), // yellow
-
 }
 
 var FocusedTableStyle = table.Styles{

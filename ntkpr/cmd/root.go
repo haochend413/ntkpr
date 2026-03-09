@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/haochend413/ntkpr/config"
 	"github.com/haochend413/ntkpr/internal/app"
 	"github.com/haochend413/ntkpr/internal/db"
@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 		globalModel = &model
 
 		// Run Bubble Tea program
-		p := tea.NewProgram(model, tea.WithAltScreen())
+		p := tea.NewProgram(model)
 		if _, err := p.Run(); err != nil {
 			log.Fatal(err)
 		}
