@@ -265,7 +265,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg, tableKeys.Select):
 				cursor := m.threadsTable.Cursor()
-				m.app.GetDataMgr().SwitchActiveThread(cursor)
+				m.switchToThreadAtCursor(cursor)
 				m.updateBranchesTable()
 				m.branchesTable.SetCursor(0)
 				m.updateNotesTable()
@@ -281,7 +281,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.threadsTable.SetCursor(lastIdx)
 				}
 				cursor := m.threadsTable.Cursor()
-				m.app.GetDataMgr().SwitchActiveThread(cursor)
+				m.switchToThreadAtCursor(cursor)
 				m.updateBranchesTable()
 				m.branchesTable.SetCursor(0)
 				m.updateNotesTable()
@@ -341,7 +341,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg, tableKeys.Select):
 				cursor := m.branchesTable.Cursor()
-				m.app.GetDataMgr().SwitchActiveBranch(cursor)
+				m.switchToBranchAtCursor(cursor)
 				m.updateNotesTable()
 				m.notesTable.SetCursor(0)
 				m.SetFocus(FocusNotes)
@@ -359,7 +359,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.branchesTable.SetCursor(lastIdx)
 				}
 				cursor := m.branchesTable.Cursor()
-				m.app.GetDataMgr().SwitchActiveBranch(cursor)
+				m.switchToBranchAtCursor(cursor)
 				m.updateNotesTable()
 				m.notesTable.SetCursor(0)
 				m.SetFocus(FocusBranches)
@@ -420,7 +420,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg, tableKeys.Select):
 				cursor := m.notesTable.Cursor()
-				m.app.GetDataMgr().SwitchActiveNote(cursor)
+				m.switchToNoteAtCursor(cursor)
 				m.EnterEdit(FocusNotes)
 				m.updateStatusBar()
 				return m, nil
@@ -438,7 +438,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.notesTable.SetCursor(lastIdx)
 				}
 				cursor := m.notesTable.Cursor()
-				m.app.GetDataMgr().SwitchActiveNote(cursor)
+				m.switchToNoteAtCursor(cursor)
 				m.SetFocus(FocusNotes)
 				m.updateNotesTable()
 				return m, nil
@@ -488,7 +488,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case key.Matches(msg, tableKeys.GoToEdit):
 				cursor := m.notesTable.Cursor()
-				m.app.GetDataMgr().SwitchActiveNote(cursor)
+				m.switchToNoteAtCursor(cursor)
 				m.EnterEdit(FocusNotes)
 				return m, nil
 
@@ -508,6 +508,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case FocusRecent:
 			switch {
+			case key.Matches(msg, tableKeys.Select):
+				noteEdits := m.app.GetNoteEditStack()
+				cursor := m.recentTable.Cursor()
+				if cursor < 0 || cursor >= len(noteEdits) {
+					return m, nil
+				}
+
+				idx := len(noteEdits) - 1 - cursor
+				link := noteEdits[idx]
+				m.app.GetDataMgr().SwitchActiveThreadByID(uint(link.Link.ThreadID))
+				m.app.GetDataMgr().SwitchActiveBranchByID(uint(link.Link.BranchID))
+				m.app.GetDataMgr().SwitchActiveNoteByID(uint(link.Link.NoteID))
+				// re-render
+				m.updateThreadsTable()
+				m.updateBranchesTable()
+				m.updateNotesTable()
+
+				m.threadsTable.SetCursor(m.app.GetDataMgr().GetActiveThreadPtr())
+				m.branchesTable.SetCursor(m.app.GetDataMgr().GetActiveBranchPtr())
+				m.notesTable.SetCursor(m.app.GetDataMgr().GetActiveNotePtr())
+
+				m.updateStatusBar()
+				// switch focus
+				m.SetFocus(FocusNotes)
+				return m, nil
 			case key.Matches(msg, tableKeys.ViewRecent):
 				// Toggle back to Notes when R is pressed again
 				m.SetFocus(FocusNotes)
@@ -541,7 +566,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.focus {
 		case FocusThreads:
 			cursor := m.threadsTable.Cursor()
-			m.app.GetDataMgr().SwitchActiveThread(cursor)
+			m.switchToThreadAtCursor(cursor)
 			m.updateBranchesTable()
 			// Reset branch cursor to 0 when thread changes
 			m.branchesTable.SetCursor(0)
@@ -552,7 +577,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateStatusBar()
 		case FocusBranches:
 			cursor := m.branchesTable.Cursor()
-			m.app.GetDataMgr().SwitchActiveBranch(cursor)
+			m.switchToBranchAtCursor(cursor)
 			m.updateNotesTable()
 			// Reset note cursor to 0 when branch changes
 			m.notesTable.SetCursor(0)
@@ -560,7 +585,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateStatusBar()
 		case FocusNotes:
 			cursor := m.notesTable.Cursor()
-			m.app.GetDataMgr().SwitchActiveNote(cursor)
+			m.switchToNoteAtCursor(cursor)
 			m.textArea.SetValue(m.app.GetCurrentNoteContent())
 			m.updateStatusBar()
 		}
@@ -724,4 +749,28 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (m *Model) switchToThreadAtCursor(cursor int) bool {
+	threads := m.app.GetThreadList()
+	if cursor < 0 || cursor >= len(threads) {
+		return false
+	}
+	return m.app.GetDataMgr().SwitchActiveThreadByID(threads[cursor].ID)
+}
+
+func (m *Model) switchToBranchAtCursor(cursor int) bool {
+	branches := m.app.GetActiveBranchList()
+	if cursor < 0 || cursor >= len(branches) {
+		return false
+	}
+	return m.app.GetDataMgr().SwitchActiveBranchByID(branches[cursor].ID)
+}
+
+func (m *Model) switchToNoteAtCursor(cursor int) bool {
+	notes := m.app.GetActiveNoteList()
+	if cursor < 0 || cursor >= len(notes) {
+		return false
+	}
+	return m.app.GetDataMgr().SwitchActiveNoteByID(notes[cursor].ID)
 }

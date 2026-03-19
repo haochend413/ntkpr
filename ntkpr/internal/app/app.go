@@ -252,12 +252,12 @@ func (a *App) SyncWithDatabase() {
 		return
 	}
 
-	tc := a.dataMgr.GetActiveThreadPtr()
-	bc := a.dataMgr.GetActiveBranchPtr()
-	nc := a.dataMgr.GetActiveNotePtr()
+	threadID := a.dataMgr.GetActiveThreadID()
+	branchID := a.dataMgr.GetActiveBranchID()
+	noteID := a.dataMgr.GetActiveNoteID()
 
 	// Refresh data manager with updated threads
-	a.dataMgr.RefreshData(updatedThreads, &tc, &bc, &nc)
+	a.dataMgr.RefreshDataByID(updatedThreads, &threadID, &branchID, &noteID)
 
 	// Get next IDs from database (includes soft-deleted records)
 	// This ensures we never reuse an ID that exists in the DB

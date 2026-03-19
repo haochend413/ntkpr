@@ -416,7 +416,8 @@ func (m *Model) updateRecentTable() {
 	noteEdits := m.app.GetNoteEditStack()
 
 	rows := make([]table.Row, len(noteEdits))
-	for i, noteEdit := range noteEdits {
+	for i := range noteEdits {
+		noteEdit := noteEdits[len(noteEdits)-1-i]
 		link := noteEdit.Link
 
 		// Fetch thread, branch, and note by their IDs
