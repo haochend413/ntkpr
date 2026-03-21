@@ -264,6 +264,6 @@ func (a *App) SyncWithDatabase() {
 	a.nextNoteCreateID = a.db.GetCreateNoteID()
 	a.nextBranchCreateID = a.db.GetCreateBranchID()
 	a.nextThreadCreateID = a.db.GetCreateThreadID()
-	a.editMgr.Clear()
+	a.editMgr.ClearOnSync()
 	a.Synced = true
 }

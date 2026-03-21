@@ -278,6 +278,12 @@ func (em *EditMgr) Clear() {
 	em.EditMap = make(map[EditKey]*Edit)
 }
 
+// ClearOnSync resets edit record, but not history
+func (em *EditMgr) ClearOnSync() {
+	em.EditStack = make([]*Edit, 0)
+	em.EditMap = make(map[EditKey]*Edit)
+}
+
 // These needs further adaption to NoteEditStack
 
 // RemoveEdit removes an edit from the map (for undo operations)
