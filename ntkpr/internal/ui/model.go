@@ -47,6 +47,13 @@ const (
 	FocusRecent
 )
 
+type ViewMode int
+
+const (
+	ApplicationView ViewMode = iota
+	QuitConfirmView
+)
+
 // tickMsg is used to update the UI clock every second.
 type tickMsg time.Time
 
@@ -64,6 +71,9 @@ type Model struct {
 	changeTable   table.Model
 	recentTable   table.Model
 	statusBar     statusbar.Model
+
+	//view mode
+	viewMode ViewMode
 
 	//states
 	previousFocus   FocusState
@@ -209,6 +219,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 		notesTable:      noteTable,
 		recentTable:     recentTable,
 		textArea:        textArea,
+		viewMode:        ApplicationView,
 		statusBar:       sb,
 		changeTable:     changeTable,
 		focus:           FocusThreads,

@@ -10,8 +10,14 @@ import (
 	"github.com/haochend413/ntkpr/internal/ui/styles"
 )
 
-// View renders the UI
-func (m Model) View() tea.View {
+// define modular view functions
+func (m Model) quitConfirmView() tea.View {
+	v := tea.NewView("You sure you wanna quit ntkpr? This will reset recent table since this feature is not yet supported.\nTo quit, type y.\nTo go back, type n.")
+	v.AltScreen = true
+	return v
+}
+
+func (m Model) appView() tea.View {
 	if !m.ready {
 		v := tea.NewView("Initializing...")
 		v.AltScreen = true
@@ -140,6 +146,20 @@ func (m Model) View() tea.View {
 	// Create view with composited output
 	v := tea.NewView(output)
 	v.AltScreen = true
+	return v
+}
+
+// View renders the UI
+func (m Model) View() tea.View {
+	var v tea.View
+	switch m.viewMode {
+	case ApplicationView:
+		v = m.appView()
+	case QuitConfirmView:
+		v = m.quitConfirmView()
+	default:
+		v = m.appView()
+	}
 	return v
 }
 

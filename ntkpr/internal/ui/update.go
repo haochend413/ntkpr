@@ -16,9 +16,12 @@ import (
 	// "github.com/haochend413/ntkpr/sys"
 )
 
+// well we need to separate keymaps ...
 // Global keys that work in any mode
 type globalKeyMap struct {
 	QuitApp           key.Binding
+	ConfirmQuit       key.Binding
+	RejectQuit        key.Binding
 	SwitchFocusWindow key.Binding
 	SyncWithDB        key.Binding
 	GetHelp           key.Binding
@@ -26,6 +29,8 @@ type globalKeyMap struct {
 
 var globalKeys = globalKeyMap{
 	QuitApp:           key.NewBinding(key.WithKeys("ctrl+c")),
+	ConfirmQuit:       key.NewBinding(key.WithKeys("y")),
+	RejectQuit:        key.NewBinding(key.WithKeys("n")),
 	SwitchFocusWindow: key.NewBinding(key.WithKeys("tab")),
 	SyncWithDB:        key.NewBinding(key.WithKeys("ctrl+q")),
 	GetHelp:           key.NewBinding(key.WithKeys("H")),
@@ -231,333 +236,348 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// update statusbar
 		m.statusBar.GetTag("Action").SetValue(msg.String())
 		// Handle global keys first
-		switch {
-		case key.Matches(msg, globalKeys.QuitApp):
-			m.app.SyncWithDatabase()
-			return m, tea.Quit
-
-		case key.Matches(msg, globalKeys.SyncWithDB):
-			m.app.SyncWithDatabase()
-			m.updateThreadsTable()
-			m.updateBranchesTable()
-			m.updateNotesTable()
-			m.updateChangelogTable()
-			m.updateStatusBar()
-			return m, nil
-
-		case key.Matches(msg, globalKeys.SwitchFocusWindow):
-			// Tab cycles through three tables only: Threads -> Branches -> Notes -> Threads
-			// Edit and Changelog can only be accessed via specific keys (e/ctrl+e and ctrl+l)
-			if m.focus == FocusEdit {
-				cmd1 := m.ExitEdit(true, curr_spl)
-				return m, cmd1
-			}
-			if m.focus == FocusChangelog {
-				// If in changelog, tab does nothing
-				return m, nil
-			}
-			return m, nil
-		}
-
-		// Handle mode-specific keys
-		switch m.focus {
-		case FocusThreads:
+		switch m.viewMode {
+		case ApplicationView:
 			switch {
-			case key.Matches(msg, tableKeys.Select):
-				cursor := m.threadsTable.Cursor()
-				m.switchToThreadAtCursor(cursor)
-				m.updateBranchesTable()
-				m.branchesTable.SetCursor(0)
-				m.updateNotesTable()
-				m.notesTable.SetCursor(0)
-				m.SetFocus(FocusBranches)
+			case key.Matches(msg, globalKeys.QuitApp):
+				m.viewMode = QuitConfirmView
+				// m.app.SyncWithDatabase()
+				// return m, tea.Quit
 				return m, nil
 
-			case key.Matches(msg, tableKeys.CreateNew):
-				m.app.CreateNewThread(nil)
-				m.updateThreadsTable()
-				lastIdx := len(m.app.GetThreadList()) - 1
-				if lastIdx >= 0 {
-					m.threadsTable.SetCursor(lastIdx)
-				}
-				cursor := m.threadsTable.Cursor()
-				m.switchToThreadAtCursor(cursor)
-				m.updateBranchesTable()
-				m.branchesTable.SetCursor(0)
-				m.updateNotesTable()
-				m.notesTable.SetCursor(0)
-				m.SetFocus(FocusThreads)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.Delete):
-				m.app.DeleteCurrentThread(nil)
+			case key.Matches(msg, globalKeys.SyncWithDB):
+				m.app.SyncWithDatabase()
 				m.updateThreadsTable()
 				m.updateBranchesTable()
 				m.updateNotesTable()
-				threadRows := m.threadsTable.Rows()
-				branchRows := m.branchesTable.Rows()
-				noteRows := m.notesTable.Rows()
-				prevThreadCursor := m.threadsTable.Cursor()
-				prevBranchCursor := m.branchesTable.Cursor()
-				prevNoteCursor := m.notesTable.Cursor()
-				if len(threadRows) > 0 {
-					if prevThreadCursor < len(threadRows) {
-						m.threadsTable.SetCursor(prevThreadCursor)
-					} else {
-						m.threadsTable.SetCursor(len(threadRows) - 1)
-					}
-				}
-				if len(branchRows) > 0 {
-					if prevBranchCursor < len(branchRows) {
-						m.branchesTable.SetCursor(prevBranchCursor)
-					} else {
-						m.branchesTable.SetCursor(len(branchRows) - 1)
-					}
-				}
-				if len(noteRows) > 0 {
-					if prevNoteCursor < len(noteRows) {
-						m.notesTable.SetCursor(prevNoteCursor)
-					} else {
-						m.notesTable.SetCursor(len(noteRows) - 1)
-					}
-				}
-				m.SetFocus(FocusThreads)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.GoToEdit):
-				m.EnterEdit(FocusThreads)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.DownTable):
-				m.SetFocus(FocusBranches)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.ViewRecent):
-				m.SetFocus(FocusRecent)
-				return m, nil
-			}
-
-		case FocusBranches:
-			switch {
-			case key.Matches(msg, tableKeys.Select):
-				cursor := m.branchesTable.Cursor()
-				m.switchToBranchAtCursor(cursor)
-				m.updateNotesTable()
-				m.notesTable.SetCursor(0)
-				m.SetFocus(FocusNotes)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.Back):
-				m.SetFocus(FocusThreads)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.CreateNew):
-				m.app.CreateNewBranch(nil)
-				m.updateBranchesTable()
-				lastIdx := len(m.app.GetActiveBranchList()) - 1
-				if lastIdx >= 0 {
-					m.branchesTable.SetCursor(lastIdx)
-				}
-				cursor := m.branchesTable.Cursor()
-				m.switchToBranchAtCursor(cursor)
-				m.updateNotesTable()
-				m.notesTable.SetCursor(0)
-				m.SetFocus(FocusBranches)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.Delete):
-				m.app.DeleteCurrentBranch(nil)
-				m.updateBranchesTable()
-				m.updateNotesTable()
-				threadRows := m.threadsTable.Rows()
-				branchRows := m.branchesTable.Rows()
-				noteRows := m.notesTable.Rows()
-				prevThreadCursor := m.threadsTable.Cursor()
-				prevBranchCursor := m.branchesTable.Cursor()
-				prevNoteCursor := m.notesTable.Cursor()
-				if len(threadRows) > 0 {
-					if prevThreadCursor < len(threadRows) {
-						m.threadsTable.SetCursor(prevThreadCursor)
-					} else {
-						m.threadsTable.SetCursor(len(threadRows) - 1)
-					}
-				}
-				if len(branchRows) > 0 {
-					if prevBranchCursor < len(branchRows) {
-						m.branchesTable.SetCursor(prevBranchCursor)
-					} else {
-						m.branchesTable.SetCursor(len(branchRows) - 1)
-					}
-				}
-				if len(noteRows) > 0 {
-					if prevNoteCursor < len(noteRows) {
-						m.notesTable.SetCursor(prevNoteCursor)
-					} else {
-						m.notesTable.SetCursor(len(noteRows) - 1)
-					}
-				}
-				m.SetFocus(FocusBranches)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.GoToEdit):
-				m.EnterEdit(FocusBranches)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.UpTable):
-				m.SetFocus(FocusThreads)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.DownTable):
-				m.SetFocus(FocusNotes)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.ViewRecent):
-				m.SetFocus(FocusRecent)
-				return m, nil
-			}
-
-		case FocusNotes:
-			switch {
-			case key.Matches(msg, tableKeys.Select):
-				cursor := m.notesTable.Cursor()
-				m.switchToNoteAtCursor(cursor)
-				m.EnterEdit(FocusNotes)
+				m.updateChangelogTable()
 				m.updateStatusBar()
 				return m, nil
 
-			case key.Matches(msg, tableKeys.Back):
-				m.SetFocus(FocusBranches)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.CreateNew):
-
-				m.app.CreateNewNote(nil) // let's not track create for now.
-				m.updateNotesTable()
-				lastIdx := len(m.app.GetActiveNoteList()) - 1
-				if lastIdx >= 0 {
-					m.notesTable.SetCursor(lastIdx)
+			case key.Matches(msg, globalKeys.SwitchFocusWindow):
+				// Tab cycles through three tables only: Threads -> Branches -> Notes -> Threads
+				// Edit and Changelog can only be accessed via specific keys (e/ctrl+e and ctrl+l)
+				if m.focus == FocusEdit {
+					cmd1 := m.ExitEdit(true, curr_spl)
+					return m, cmd1
 				}
-				cursor := m.notesTable.Cursor()
-				m.switchToNoteAtCursor(cursor)
-				m.SetFocus(FocusNotes)
-				m.updateNotesTable()
-				return m, nil
-
-			case key.Matches(msg, tableKeys.Delete):
-				m.app.DeleteCurrentNote(nil) // also not delete
-				m.updateNotesTable()
-				threadRows := m.threadsTable.Rows()
-				branchRows := m.branchesTable.Rows()
-				noteRows := m.notesTable.Rows()
-				prevThreadCursor := m.threadsTable.Cursor()
-				prevBranchCursor := m.branchesTable.Cursor()
-				prevNoteCursor := m.notesTable.Cursor()
-				if len(threadRows) > 0 {
-					if prevThreadCursor < len(threadRows) {
-						m.threadsTable.SetCursor(prevThreadCursor)
-					} else {
-						m.threadsTable.SetCursor(len(threadRows) - 1)
-					}
+				if m.focus == FocusChangelog {
+					// If in changelog, tab does nothing
+					return m, nil
 				}
-				if len(branchRows) > 0 {
-					if prevBranchCursor < len(branchRows) {
-						m.branchesTable.SetCursor(prevBranchCursor)
-					} else {
-						m.branchesTable.SetCursor(len(branchRows) - 1)
-					}
-				}
-				if len(noteRows) > 0 {
-					if prevNoteCursor < len(noteRows) {
-						m.notesTable.SetCursor(prevNoteCursor)
-					} else {
-						m.notesTable.SetCursor(len(noteRows) - 1)
-					}
-				}
-				m.SetFocus(FocusNotes)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.Highlight):
-				m.app.ToggleCurrentNoteHighlight(&curr_spl)
-				m.updateNotesTable()
-				return m, nil
-
-			case key.Matches(msg, tableKeys.Privatize):
-				m.app.ToggleCurrentNotePrivate(&curr_spl)
-				m.updateNotesTable()
-				return m, nil
-
-			case key.Matches(msg, tableKeys.GoToEdit):
-				cursor := m.notesTable.Cursor()
-				m.switchToNoteAtCursor(cursor)
-				m.EnterEdit(FocusNotes)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.ViewChangelog):
-				m.updateChangelogTable()
-				m.SetFocus(FocusChangelog)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.UpTable):
-				m.SetFocus(FocusBranches)
-				return m, nil
-
-			case key.Matches(msg, tableKeys.ViewRecent):
-				m.SetFocus(FocusRecent)
 				return m, nil
 			}
 
-		case FocusRecent:
-			switch {
-			case key.Matches(msg, tableKeys.Select):
-				noteEdits := m.app.GetNoteEditStack()
-				cursor := m.recentTable.Cursor()
-				if cursor < 0 || cursor >= len(noteEdits) {
+			// Handle mode-specific keys
+			switch m.focus {
+			case FocusThreads:
+				switch {
+				case key.Matches(msg, tableKeys.Select):
+					cursor := m.threadsTable.Cursor()
+					m.switchToThreadAtCursor(cursor)
+					m.updateBranchesTable()
+					m.branchesTable.SetCursor(0)
+					m.updateNotesTable()
+					m.notesTable.SetCursor(0)
+					m.SetFocus(FocusBranches)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.CreateNew):
+					m.app.CreateNewThread(nil)
+					m.updateThreadsTable()
+					lastIdx := len(m.app.GetThreadList()) - 1
+					if lastIdx >= 0 {
+						m.threadsTable.SetCursor(lastIdx)
+					}
+					cursor := m.threadsTable.Cursor()
+					m.switchToThreadAtCursor(cursor)
+					m.updateBranchesTable()
+					m.branchesTable.SetCursor(0)
+					m.updateNotesTable()
+					m.notesTable.SetCursor(0)
+					m.SetFocus(FocusThreads)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.Delete):
+					m.app.DeleteCurrentThread(nil)
+					m.updateThreadsTable()
+					m.updateBranchesTable()
+					m.updateNotesTable()
+					threadRows := m.threadsTable.Rows()
+					branchRows := m.branchesTable.Rows()
+					noteRows := m.notesTable.Rows()
+					prevThreadCursor := m.threadsTable.Cursor()
+					prevBranchCursor := m.branchesTable.Cursor()
+					prevNoteCursor := m.notesTable.Cursor()
+					if len(threadRows) > 0 {
+						if prevThreadCursor < len(threadRows) {
+							m.threadsTable.SetCursor(prevThreadCursor)
+						} else {
+							m.threadsTable.SetCursor(len(threadRows) - 1)
+						}
+					}
+					if len(branchRows) > 0 {
+						if prevBranchCursor < len(branchRows) {
+							m.branchesTable.SetCursor(prevBranchCursor)
+						} else {
+							m.branchesTable.SetCursor(len(branchRows) - 1)
+						}
+					}
+					if len(noteRows) > 0 {
+						if prevNoteCursor < len(noteRows) {
+							m.notesTable.SetCursor(prevNoteCursor)
+						} else {
+							m.notesTable.SetCursor(len(noteRows) - 1)
+						}
+					}
+					m.SetFocus(FocusThreads)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.GoToEdit):
+					m.EnterEdit(FocusThreads)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.DownTable):
+					m.SetFocus(FocusBranches)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.ViewRecent):
+					m.SetFocus(FocusRecent)
 					return m, nil
 				}
 
-				idx := len(noteEdits) - 1 - cursor
-				link := noteEdits[idx]
-				m.app.GetDataMgr().SwitchActiveThreadByID(uint(link.Link.ThreadID))
-				m.app.GetDataMgr().SwitchActiveBranchByID(uint(link.Link.BranchID))
-				m.app.GetDataMgr().SwitchActiveNoteByID(uint(link.Link.NoteID))
-				// re-render
-				m.updateThreadsTable()
-				m.updateBranchesTable()
-				m.updateNotesTable()
+			case FocusBranches:
+				switch {
+				case key.Matches(msg, tableKeys.Select):
+					cursor := m.branchesTable.Cursor()
+					m.switchToBranchAtCursor(cursor)
+					m.updateNotesTable()
+					m.notesTable.SetCursor(0)
+					m.SetFocus(FocusNotes)
+					return m, nil
 
-				m.threadsTable.SetCursor(m.app.GetDataMgr().GetActiveThreadPtr())
-				m.branchesTable.SetCursor(m.app.GetDataMgr().GetActiveBranchPtr())
-				m.notesTable.SetCursor(m.app.GetDataMgr().GetActiveNotePtr())
+				case key.Matches(msg, tableKeys.Back):
+					m.SetFocus(FocusThreads)
+					return m, nil
 
-				m.updateStatusBar()
-				// switch focus
-				m.SetFocus(FocusNotes)
-				return m, nil
-			case key.Matches(msg, tableKeys.ViewRecent):
-				// Toggle back to Notes when R is pressed again
-				m.SetFocus(FocusNotes)
-				return m, nil
-			case key.Matches(msg, tableKeys.Back):
-				m.SetFocus(FocusNotes)
-				return m, nil
+				case key.Matches(msg, tableKeys.CreateNew):
+					m.app.CreateNewBranch(nil)
+					m.updateBranchesTable()
+					lastIdx := len(m.app.GetActiveBranchList()) - 1
+					if lastIdx >= 0 {
+						m.branchesTable.SetCursor(lastIdx)
+					}
+					cursor := m.branchesTable.Cursor()
+					m.switchToBranchAtCursor(cursor)
+					m.updateNotesTable()
+					m.notesTable.SetCursor(0)
+					m.SetFocus(FocusBranches)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.Delete):
+					m.app.DeleteCurrentBranch(nil)
+					m.updateBranchesTable()
+					m.updateNotesTable()
+					threadRows := m.threadsTable.Rows()
+					branchRows := m.branchesTable.Rows()
+					noteRows := m.notesTable.Rows()
+					prevThreadCursor := m.threadsTable.Cursor()
+					prevBranchCursor := m.branchesTable.Cursor()
+					prevNoteCursor := m.notesTable.Cursor()
+					if len(threadRows) > 0 {
+						if prevThreadCursor < len(threadRows) {
+							m.threadsTable.SetCursor(prevThreadCursor)
+						} else {
+							m.threadsTable.SetCursor(len(threadRows) - 1)
+						}
+					}
+					if len(branchRows) > 0 {
+						if prevBranchCursor < len(branchRows) {
+							m.branchesTable.SetCursor(prevBranchCursor)
+						} else {
+							m.branchesTable.SetCursor(len(branchRows) - 1)
+						}
+					}
+					if len(noteRows) > 0 {
+						if prevNoteCursor < len(noteRows) {
+							m.notesTable.SetCursor(prevNoteCursor)
+						} else {
+							m.notesTable.SetCursor(len(noteRows) - 1)
+						}
+					}
+					m.SetFocus(FocusBranches)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.GoToEdit):
+					m.EnterEdit(FocusBranches)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.UpTable):
+					m.SetFocus(FocusThreads)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.DownTable):
+					m.SetFocus(FocusNotes)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.ViewRecent):
+					m.SetFocus(FocusRecent)
+					return m, nil
+				}
+
+			case FocusNotes:
+				switch {
+				case key.Matches(msg, tableKeys.Select):
+					cursor := m.notesTable.Cursor()
+					m.switchToNoteAtCursor(cursor)
+					m.EnterEdit(FocusNotes)
+					m.updateStatusBar()
+					return m, nil
+
+				case key.Matches(msg, tableKeys.Back):
+					m.SetFocus(FocusBranches)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.CreateNew):
+
+					m.app.CreateNewNote(nil) // let's not track create for now.
+					m.updateNotesTable()
+					lastIdx := len(m.app.GetActiveNoteList()) - 1
+					if lastIdx >= 0 {
+						m.notesTable.SetCursor(lastIdx)
+					}
+					cursor := m.notesTable.Cursor()
+					m.switchToNoteAtCursor(cursor)
+					m.SetFocus(FocusNotes)
+					m.updateNotesTable()
+					return m, nil
+
+				case key.Matches(msg, tableKeys.Delete):
+					m.app.DeleteCurrentNote(nil) // also not delete
+					m.updateNotesTable()
+					threadRows := m.threadsTable.Rows()
+					branchRows := m.branchesTable.Rows()
+					noteRows := m.notesTable.Rows()
+					prevThreadCursor := m.threadsTable.Cursor()
+					prevBranchCursor := m.branchesTable.Cursor()
+					prevNoteCursor := m.notesTable.Cursor()
+					if len(threadRows) > 0 {
+						if prevThreadCursor < len(threadRows) {
+							m.threadsTable.SetCursor(prevThreadCursor)
+						} else {
+							m.threadsTable.SetCursor(len(threadRows) - 1)
+						}
+					}
+					if len(branchRows) > 0 {
+						if prevBranchCursor < len(branchRows) {
+							m.branchesTable.SetCursor(prevBranchCursor)
+						} else {
+							m.branchesTable.SetCursor(len(branchRows) - 1)
+						}
+					}
+					if len(noteRows) > 0 {
+						if prevNoteCursor < len(noteRows) {
+							m.notesTable.SetCursor(prevNoteCursor)
+						} else {
+							m.notesTable.SetCursor(len(noteRows) - 1)
+						}
+					}
+					m.SetFocus(FocusNotes)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.Highlight):
+					m.app.ToggleCurrentNoteHighlight(&curr_spl)
+					m.updateNotesTable()
+					return m, nil
+
+				case key.Matches(msg, tableKeys.Privatize):
+					m.app.ToggleCurrentNotePrivate(&curr_spl)
+					m.updateNotesTable()
+					return m, nil
+
+				case key.Matches(msg, tableKeys.GoToEdit):
+					cursor := m.notesTable.Cursor()
+					m.switchToNoteAtCursor(cursor)
+					m.EnterEdit(FocusNotes)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.ViewChangelog):
+					m.updateChangelogTable()
+					m.SetFocus(FocusChangelog)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.UpTable):
+					m.SetFocus(FocusBranches)
+					return m, nil
+
+				case key.Matches(msg, tableKeys.ViewRecent):
+					m.SetFocus(FocusRecent)
+					return m, nil
+				}
+
+			case FocusRecent:
+				switch {
+				case key.Matches(msg, tableKeys.Select):
+					noteEdits := m.app.GetNoteEditStack()
+					cursor := m.recentTable.Cursor()
+					if cursor < 0 || cursor >= len(noteEdits) {
+						return m, nil
+					}
+
+					idx := len(noteEdits) - 1 - cursor
+					link := noteEdits[idx]
+					m.app.GetDataMgr().SwitchActiveThreadByID(uint(link.Link.ThreadID))
+					m.app.GetDataMgr().SwitchActiveBranchByID(uint(link.Link.BranchID))
+					m.app.GetDataMgr().SwitchActiveNoteByID(uint(link.Link.NoteID))
+					// re-render
+					m.updateThreadsTable()
+					m.updateBranchesTable()
+					m.updateNotesTable()
+
+					m.threadsTable.SetCursor(m.app.GetDataMgr().GetActiveThreadPtr())
+					m.branchesTable.SetCursor(m.app.GetDataMgr().GetActiveBranchPtr())
+					m.notesTable.SetCursor(m.app.GetDataMgr().GetActiveNotePtr())
+
+					m.updateStatusBar()
+					// switch focus
+					m.SetFocus(FocusNotes)
+					return m, nil
+				case key.Matches(msg, tableKeys.ViewRecent):
+					// Toggle back to Notes when R is pressed again
+					m.SetFocus(FocusNotes)
+					return m, nil
+				case key.Matches(msg, tableKeys.Back):
+					m.SetFocus(FocusNotes)
+					return m, nil
+				}
+
+			case FocusChangelog:
+				switch {
+				case key.Matches(msg, tableKeys.Back):
+					m.SetFocus(FocusNotes)
+					return m, nil
+				}
+
+			case FocusEdit:
+				switch {
+				case key.Matches(msg, editKeys.SaveAndReturn):
+					cmd1 := m.ExitEdit(true, curr_spl)
+					return m, cmd1
+
+				case key.Matches(msg, editKeys.Cancel):
+					cmd1 := m.ExitEdit(false, curr_spl)
+					return m, cmd1
+				}
 			}
-
-		case FocusChangelog:
+		case QuitConfirmView:
 			switch {
-			case key.Matches(msg, tableKeys.Back):
-				m.SetFocus(FocusNotes)
+			case key.Matches(msg, globalKeys.ConfirmQuit):
+				m.app.SyncWithDatabase()
+				return m, tea.Quit
+			case key.Matches(msg, globalKeys.RejectQuit):
+				// put m viewmode back
+				m.viewMode = ApplicationView
 				return m, nil
-			}
-
-		case FocusEdit:
-			switch {
-			case key.Matches(msg, editKeys.SaveAndReturn):
-				cmd1 := m.ExitEdit(true, curr_spl)
-				return m, cmd1
-
-			case key.Matches(msg, editKeys.Cancel):
-				cmd1 := m.ExitEdit(false, curr_spl)
-				return m, cmd1
 			}
 		}
 

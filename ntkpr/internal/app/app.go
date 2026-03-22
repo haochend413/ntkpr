@@ -43,6 +43,12 @@ func NewApp(dbConn *db.DB, AppState *state.AppState) *App {
 	return app
 }
 
+// // quit confirm waits for user permission to quit. This should be simple.
+// func QuitConfirm() bool {
+// 	// wait for user to enter something.
+
+// }
+
 // GetDataMgr returns the data manager
 func (a *App) GetDataMgr() *data.DataMgr {
 	return a.dataMgr
