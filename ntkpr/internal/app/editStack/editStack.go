@@ -145,6 +145,18 @@ func NewEditMgr() *EditMgr {
 	}
 }
 
+// add a function for addedit
+func AppendNoteEdit(ne_stack []*NoteEdit, ne *NoteEdit) []*NoteEdit {
+	for i, note := range ne_stack {
+		if ne.Link == note.Link {
+			ne_stack = append(ne_stack[:i], ne_stack[i+1:]...)
+			break
+		}
+	}
+	ne_stack = append(ne_stack, ne)
+	return ne_stack
+}
+
 // This function sets up edit stack according to basic handling logic.
 func (em *EditMgr) AddEdit(curr *Edit, spl *models.Superlink) error {
 	em.EditStack = append(em.EditStack, curr)
@@ -180,10 +192,10 @@ func (em *EditMgr) AddEdit(curr *Edit, spl *models.Superlink) error {
 				// Keep as CreateNote - new note being edited before sync
 				// No change needed, edit.EditType is already CreateNote
 				// append to note edit
-				em.NoteEditStack = append(em.NoteEditStack, &ne)
+				em.NoteEditStack = AppendNoteEdit(em.NoteEditStack, &ne)
 			case UpdateNote:
 				// Already marked as UpdateNote, no change needed
-				em.NoteEditStack = append(em.NoteEditStack, &ne)
+				em.NoteEditStack = AppendNoteEdit(em.NoteEditStack, &ne)
 			case DeleteNote:
 				return fmt.Errorf("invalid state: attempting to UpdateNote %d that is marked for DeleteNote", id)
 			}
@@ -264,7 +276,7 @@ func (em *EditMgr) AddEdit(curr *Edit, spl *models.Superlink) error {
 		em.EditMap[key] = &Edit{ID: id, EditType: tp}
 		// if something about note is passed in, then we append to noteeditstack
 		if spl != nil {
-			em.NoteEditStack = append(em.NoteEditStack, &ne)
+			em.NoteEditStack = AppendNoteEdit(em.NoteEditStack, &ne)
 		}
 	}
 
