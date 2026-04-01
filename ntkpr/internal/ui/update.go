@@ -30,7 +30,7 @@ type globalKeyMap struct {
 var globalKeys = globalKeyMap{
 	QuitApp:           key.NewBinding(key.WithKeys("ctrl+c")),
 	ConfirmQuit:       key.NewBinding(key.WithKeys("y")),
-	RejectQuit:        key.NewBinding(key.WithKeys("n")),
+	RejectQuit:        key.NewBinding(key.WithKeys("n", "esc")),
 	SwitchFocusWindow: key.NewBinding(key.WithKeys("tab")),
 	SyncWithDB:        key.NewBinding(key.WithKeys("ctrl+q")),
 	GetHelp:           key.NewBinding(key.WithKeys("H")),
@@ -141,8 +141,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		borderOverhead := 8
 		availableWidth := m.width - borderOverhead
 
-		// Split: 40% for tables (left), 60% for edit (right)
-		tableContentWidth := int(float64(availableWidth) * 0.4)
+		// Split: 35% for tables (left), 60% for edit (right)
+		tableContentWidth := int(float64(availableWidth) * 0.35)
 		editContentWidth := availableWidth - tableContentWidth
 
 		tableWidth := tableContentWidth
@@ -213,11 +213,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		standard_notes_height := tableHeight*8 + 4 - 3
 		m.threadsTable.SetHeight(standard_thread_height + 6)
 		m.branchesTable.SetHeight(standard_branch_height)
-		m.notesTable.SetHeight(standard_notes_height)
+		m.notesTable.SetHeight(standard_notes_height + 2)
 		m.recentTable.SetHeight(standard_notes_height)
 		// Textarea takes most of right side
 		m.textArea.SetWidth(editWidth)
-		textareaHeight := max(5, int(float64(mainContentHeight)*0.7)) - 1
+		textareaHeight := max(5, int(float64(mainContentHeight)*1)) - 1
 		m.textArea.SetHeight(textareaHeight)
 
 		// Changelog table (below textarea)
@@ -658,17 +658,17 @@ func (m *Model) SetFocus(focus FocusState) {
 		m.textArea.SetValue(m.app.GetCurrentThreadSummary())
 		m.threadsTable.SetHeight(standard_thread_height + 6)
 		m.branchesTable.SetHeight(standard_branch_height)
-		m.notesTable.SetHeight(standard_notes_height)
+		m.notesTable.SetHeight(standard_notes_height + 2)
 	case FocusBranches:
 		m.branchesTable.Focus()
 		m.textArea.SetValue(m.app.GetCurrentBranchSummary())
 		m.threadsTable.SetHeight(standard_thread_height)
 		m.branchesTable.SetHeight(standard_branch_height + 6)
-		m.notesTable.SetHeight(standard_notes_height)
+		m.notesTable.SetHeight(standard_notes_height + 2)
 	case FocusNotes:
 		m.notesTable.Focus()
 		m.textArea.SetValue(m.app.GetCurrentNoteContent())
-		m.threadsTable.SetHeight(standard_thread_height)
+		m.threadsTable.SetHeight(standard_thread_height + 2)
 		m.branchesTable.SetHeight(standard_branch_height)
 		m.notesTable.SetHeight(standard_notes_height + 6)
 	case FocusChangelog:

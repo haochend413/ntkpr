@@ -79,13 +79,13 @@ func (m Model) appView() tea.View {
 		editBox = styles.BaseStyle.BorderTitle("[4]-Editor").Render(m.textArea.View())
 	}
 
-	changelogBox := m.renderChangelogTableBox()
+	// changelogBox := m.renderChangelogTableBox()
 
 	rightSide := lipgloss.JoinVertical(lipgloss.Left,
 		// styles.TitleStyle.Render("Editor"),
 		editBox,
 		// styles.TitleStyle.Render("Changes"),
-		changelogBox,
+		// changelogBox,
 	)
 
 	// Join left and right sides horizontally
