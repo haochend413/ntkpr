@@ -6,6 +6,7 @@ import (
 
 	editstack "github.com/haochend413/ntkpr/internal/app/editStack"
 	"github.com/haochend413/ntkpr/internal/models"
+	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 // current_note.go provides a controlled interface for accessing and modifying
@@ -137,7 +138,8 @@ func (a *App) HasCurrentNote() bool {
 // Setters - Controlled modification with edit tracking
 // =============================================================================
 
-// SetCurrentNoteContent updates the current note's content with edit tracking
+// SetCurrentNoteContent updates the current note's content with edit tracking.
+// This function should automatically update diff. Maybe controlled with a signal.
 func (a *App) SetCurrentNoteContent(content string, link *models.Superlink) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -152,6 +154,16 @@ func (a *App) SetCurrentNoteContent(content string, link *models.Superlink) {
 		return
 	}
 
+	dmp := diffmatchpatch.New()
+	dmp.PatchMargin = 10
+	// f, _ := os.Create("app.log")
+	// fmt.Fprintln(f, "content:", content)
+	// fmt.Fprintln(f, "note content:", note.Content)
+	// fmt.Fprintln(f, "diff:", dmp.PatchToText(dmp.PatchMake(content, note.Content)))
+	// fmt.Fprintln(f, "diff:", dmp.DiffMain(content, note.Content, false))
+
+	// note.Diff = dmp.PatchToText((dmp.PatchMake(content, note.Content))) // might need to convert it to rune for chinese.
+	note.Diff = dmp.DiffPrettyText((dmp.DiffMain(note.Content, content, false)))
 	note.Content = content
 	note.Frequency++
 	note.LastEdit = time.Now()

@@ -8,6 +8,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.1
 	github.com/haochend413/bubbles/v2 v2.102.0
 	github.com/haochend413/lipgloss/v2 v2.100.0
+	github.com/sergi/go-diff v1.4.0
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/sqlite v1.6.0

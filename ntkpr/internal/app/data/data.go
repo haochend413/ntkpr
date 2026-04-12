@@ -568,3 +568,31 @@ func (dm *DataMgr) FindNoteByID(id uint) *models.Note {
 	}
 	return nil
 }
+
+// find through superlink
+func (dm *DataMgr) FindNoteByLink(link models.Superlink) *models.Note {
+	if link.ThreadID <= 0 || link.BranchID <= 0 || link.NoteID <= 0 {
+		return nil
+	}
+
+	thread := dm.FindThreadByID(uint(link.ThreadID))
+	if thread == nil {
+		return nil
+	}
+
+	for _, branch := range thread.Branches {
+		if branch.ID != uint(link.BranchID) {
+			continue
+		}
+
+		for _, note := range branch.Notes {
+			if note.ID == uint(link.NoteID) {
+				return note
+			}
+		}
+
+		return nil
+	}
+
+	return nil
+}

@@ -181,17 +181,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		recentColumns := []table.Column{
-			{Title: "Thread", Width: max(20, int(float64(m.width)*0.25))},
-			{Title: "Branch", Width: max(20, int(float64(m.width)*0.25))},
-			{Title: "Note", Width: max(20, int(float64(m.width)*0.35))},
-			{Title: "Flags", Width: max(8, int(float64(m.width)*0.08))},
+			{Title: "Thread", Width: max(20, int(float64(m.width)*0.15))},
+			{Title: "Branch", Width: max(20, int(float64(m.width)*0.15))},
+			{Title: "Note", Width: max(20, int(float64(m.width)*0.25))},
+			{Title: "Flags", Width: max(8, int(float64(m.width)*0.04))},
 		}
 
 		// Calculate recent table width as sum of its columns
-		recentTableWidth := max(20, int(float64(m.width)*0.25)) +
+		recentTableWidth := max(20, int(float64(m.width)*0.15)) +
+			max(20, int(float64(m.width)*0.15)) +
 			max(20, int(float64(m.width)*0.25)) +
-			max(20, int(float64(m.width)*0.35)) +
-			max(8, int(float64(m.width)*0.08))
+			max(8, int(float64(m.width)*0.04))
 
 		// Set columns and width for each table with appropriate column types
 		m.threadsTable.SetColumns(threadColumns)
@@ -202,6 +202,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.notesTable.SetWidth(tableWidth)
 		m.recentTable.SetColumns(recentColumns)
 		m.recentTable.SetWidth(recentTableWidth)
+		m.diffView.SetWidth(recentTableWidth / 2)
 
 		// Height calculations
 		mainContentHeight := m.height - 5 // Reserve for help + status bar
@@ -215,6 +216,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.branchesTable.SetHeight(standard_branch_height)
 		m.notesTable.SetHeight(standard_notes_height + 2)
 		m.recentTable.SetHeight(standard_notes_height)
+		m.diffView.SetHeight(standard_notes_height)
+
 		// Textarea takes most of right side
 		m.textArea.SetWidth(editWidth)
 		textareaHeight := max(5, int(float64(mainContentHeight)*1)) - 1
@@ -512,6 +515,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				case key.Matches(msg, tableKeys.ViewRecent):
 					m.SetFocus(FocusRecent)
+					noteEdits := m.app.GetNoteEditStack()
+					cursor := m.recentTable.Cursor()
+					if cursor < 0 || cursor >= len(noteEdits) {
+						return m, nil
+					}
+
+					idx := len(noteEdits) - 1 - cursor
+					noteEdit := noteEdits[idx]
+					m.updateDiffArea(noteEdit.Link)
+
 					return m, nil
 				}
 
@@ -525,10 +538,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 
 					idx := len(noteEdits) - 1 - cursor
-					link := noteEdits[idx]
-					m.app.GetDataMgr().SwitchActiveThreadByID(uint(link.Link.ThreadID))
-					m.app.GetDataMgr().SwitchActiveBranchByID(uint(link.Link.BranchID))
-					m.app.GetDataMgr().SwitchActiveNoteByID(uint(link.Link.NoteID))
+					noteEdit := noteEdits[idx]
+					m.app.GetDataMgr().SwitchActiveThreadByID(uint(noteEdit.Link.ThreadID))
+					m.app.GetDataMgr().SwitchActiveBranchByID(uint(noteEdit.Link.BranchID))
+					m.app.GetDataMgr().SwitchActiveNoteByID(uint(noteEdit.Link.NoteID))
 					// re-render
 					m.updateThreadsTable()
 					m.updateBranchesTable()
@@ -594,6 +607,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Reset note cursor to 0 when branch changes
 			m.notesTable.SetCursor(0)
 			m.textArea.SetValue(m.app.GetCurrentThreadSummary())
+			m.textArea.UpdateWordCount()
 			m.updateStatusBar()
 		case FocusBranches:
 			cursor := m.branchesTable.Cursor()
@@ -602,12 +616,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Reset note cursor to 0 when branch changes
 			m.notesTable.SetCursor(0)
 			m.textArea.SetValue(m.app.GetCurrentBranchSummary())
+			m.textArea.UpdateWordCount()
 			m.updateStatusBar()
 		case FocusNotes:
 			cursor := m.notesTable.Cursor()
 			m.switchToNoteAtCursor(cursor)
 			m.textArea.SetValue(m.app.GetCurrentNoteContent())
+			m.textArea.UpdateWordCount()
 			m.updateStatusBar()
+		case FocusRecent:
+			// update the diff area
+			noteEdits := m.app.GetNoteEditStack()
+			cursor := m.recentTable.Cursor()
+			if cursor < 0 || cursor >= len(noteEdits) {
+				return m, nil
+			}
+
+			idx := len(noteEdits) - 1 - cursor
+			noteEdit := noteEdits[idx]
+
+			// fetch noteID
+			m.updateDiffArea(noteEdit.Link)
+
 		}
 	}
 

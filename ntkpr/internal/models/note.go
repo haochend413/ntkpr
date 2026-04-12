@@ -10,6 +10,7 @@ import (
 type Note struct {
 	gorm.Model
 	Content   string
+	Diff      string
 	LastEdit  time.Time
 	Highlight bool      `gorm:"default:false"`
 	Private   bool      `gorm:"default:false"`

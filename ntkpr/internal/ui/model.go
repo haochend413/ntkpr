@@ -13,11 +13,14 @@ import (
 	// "charm.land/bubbles/table"
 	// "charm.land/bubbles/textinput"
 	"github.com/haochend413/bubbles/v2/table"
+	"github.com/haochend413/bubbles/v2/viewport"
+
 	// "github.com/haochend413/bubbles/textarea_vim"
 	"github.com/haochend413/bubbles/v2/textinput"
 
 	// "charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+
 	// "charm.land/lipgloss/v2"
 
 	// "github.com/charmbracelet/lipgloss"
@@ -58,6 +61,7 @@ const (
 type tickMsg time.Time
 
 // Model represents the Bubble Tea model
+// This should be managed better. At least, something should be rendered into groups.
 type Model struct {
 	// metadata
 	app    *app.App
@@ -70,6 +74,7 @@ type Model struct {
 	textArea      textarea_vim.Model
 	changeTable   table.Model
 	recentTable   table.Model
+	diffView      viewport.Model // we might need something better for this.
 	statusBar     statusbar.Model
 
 	//view mode
@@ -197,6 +202,19 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	textArea.SetWidth(50)
 	textArea.SetHeight(10)
 
+	//diff
+	diffView := viewport.New()
+
+	// diffstyles := diffView.Styles()
+	// diffcursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
+	// diffstyles.Focused.CursorLine = diffcursorStyle
+	// diffstyles.Blurred.CursorLine = diffcursorStyle
+	// difftextArea.SetStyles(diffstyles)
+
+	// difftextArea.Placeholder = "Start writing! For summary of thread / branch, the first line of this textarea will be assigned to Name entry." // This should change when we switch between threads / branches / lists
+	diffView.SetWidth(50)
+	diffView.SetHeight(10)
+
 	// This needs further improving.
 	changeColumns := []table.Column{
 		{Title: "ID", Width: 4},
@@ -219,6 +237,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 		notesTable:      noteTable,
 		recentTable:     recentTable,
 		textArea:        textArea,
+		diffView:        diffView,
 		viewMode:        ApplicationView,
 		statusBar:       sb,
 		changeTable:     changeTable,
@@ -421,6 +440,16 @@ func (m *Model) updateChangelogTable() {
 	}
 
 	m.changeTable.SetRows(rows)
+}
+
+func (m *Model) updateDiffArea(link models.Superlink) {
+	// fetch currently active on rencent table
+	note := m.app.GetDataMgr().FindNoteByLink(link)
+	if note == nil {
+		m.diffView.SetContent("Diff unavailable: note not found for selected recent edit.")
+		return
+	}
+	m.diffView.SetContent(note.Diff)
 }
 
 func (m *Model) updateRecentTable() {

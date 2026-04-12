@@ -12,7 +12,7 @@ import (
 
 // define modular view functions
 func (m Model) quitConfirmView() tea.View {
-	v := tea.NewView("You sure you wanna quit ntkpr? This will reset recent table since this feature is not yet supported.\nTo quit, type y.\nTo go back, type n.")
+	v := tea.NewView("You sure you wanna quit ntkpr? This will reset recent table since this feature is not yet supported.\nTo quit, type y.\nTo go back, type n or esc.")
 	v.AltScreen = true
 	return v
 }
@@ -128,11 +128,14 @@ func (m Model) appView() tea.View {
 
 	// Only show recent table overlay when explicitly focused on it (via R key)
 	if m.focus == FocusRecent {
-		// Recent table layer positioned in the middle
+		// Recent overlay content: recent table + diff area side by side
 		recentTableBox := m.renderRecentTableBox()
-		recentLayer := lipgloss.NewLayer(recentTableBox).
-			X((m.width - lipgloss.Width(recentTableBox)) / 2).
-			Y((m.height - lipgloss.Height(recentTableBox)) / 2).
+		diffTextAreaBox := m.renderdiffArea()
+		overlayContent := lipgloss.JoinHorizontal(lipgloss.Top, recentTableBox, diffTextAreaBox)
+
+		recentLayer := lipgloss.NewLayer(overlayContent).
+			X((m.width - lipgloss.Width(overlayContent)) / 2).
+			Y((m.height - lipgloss.Height(overlayContent)) / 2).
 			Z(1)
 		// Create compositor with both layers
 		compositor = lipgloss.NewCompositor(baseLayer, recentLayer)
@@ -208,4 +211,8 @@ func (m Model) renderRecentTableBox() string {
 	return styles.FocusedStyle.
 		BorderTitle("Recent Edits").
 		Render(m.recentTable.View())
+}
+
+func (m Model) renderdiffArea() string {
+	return styles.FocusedStyle.BorderTitle("Diff").Render(m.diffView.View())
 }
