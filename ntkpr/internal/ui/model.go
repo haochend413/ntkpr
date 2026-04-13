@@ -48,6 +48,7 @@ const (
 	FocusEdit
 	FocusChangelog
 	FocusRecent
+	FocusDiff
 )
 
 type ViewMode int
@@ -89,6 +90,10 @@ type Model struct {
 	//data
 	width  int
 	height int
+}
+
+func colorPtr(c string) *string {
+	return &c
 }
 
 // NewModel initializes a new UI model
@@ -167,11 +172,11 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	)
 
 	// Configure all left elements in sequence
-	sb.GetLeft(0).SetValue("Context: Default").SetColors("252", "237").SetWidth(25)
+	sb.GetLeft(0).SetValue("Context: Default").SetColors(colorPtr("252"), colorPtr("237")).SetWidth(25)
 
-	sb.GetLeft(1).SetValue("NoteID: -").SetColors("250", "238").SetWidth(15)
-	sb.GetLeft(2).SetValue("Updated: Never").SetColors("250", "239").SetWidth(20)
-	sb.GetLeft(3).SetValue("Version: 1.0").SetColors("250", "240").SetWidth(15)
+	sb.GetLeft(1).SetValue("NoteID: -").SetColors(colorPtr("250"), colorPtr("238")).SetWidth(15)
+	sb.GetLeft(2).SetValue("Updated: Never").SetColors(colorPtr("250"), colorPtr("239")).SetWidth(20)
+	sb.GetLeft(3).SetValue("Version: 1.0").SetColors(colorPtr("250"), colorPtr("240")).SetWidth(15)
 	//set tags for quick and consistent access
 	sb.SetTag(sb.GetLeft(0), "filter")
 	sb.SetTag(sb.GetLeft(1), "ID")
@@ -179,9 +184,9 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	sb.SetTag(sb.GetLeft(3), "Frequency")
 
 	// Configure all right elements in sequence
-	sb.GetRight(0).SetValue("").SetColors("250", "238").SetWidth(12)
-	sb.GetRight(1).SetValue("Synced").SetColors("232", "118").SetWidth(15)
-	sb.GetRight(2).SetValue(time.Now().Format("15:04:05")).SetColors("250", "236").SetWidth(10)
+	sb.GetRight(0).SetValue("").SetColors(colorPtr("226"), nil).SetWidth(30)
+	sb.GetRight(1).SetValue("Synced").SetColors(colorPtr("232"), colorPtr("118")).SetWidth(15)
+	sb.GetRight(2).SetValue(time.Now().Format("15:04:05")).SetColors(colorPtr("250"), colorPtr("236")).SetWidth(10)
 	sb.SetTag(sb.GetRight(0), "Action")
 	sb.SetTag(sb.GetRight(1), "Synced")
 	sb.SetTag(sb.GetRight(2), "Time")
@@ -214,7 +219,7 @@ func NewModel(application *app.App, cfg *config.Config, s *state.State) Model {
 	// difftextArea.Placeholder = "Start writing! For summary of thread / branch, the first line of this textarea will be assigned to Name entry." // This should change when we switch between threads / branches / lists
 	diffView.SetWidth(50)
 	diffView.SetHeight(10)
-
+	diffView.SoftWrap = true
 	// This needs further improving.
 	changeColumns := []table.Column{
 		{Title: "ID", Width: 4},
@@ -446,7 +451,12 @@ func (m *Model) updateDiffArea(link models.Superlink) {
 	// fetch currently active on rencent table
 	note := m.app.GetDataMgr().FindNoteByLink(link)
 	if note == nil {
-		m.diffView.SetContent("Diff unavailable: note not found for selected recent edit.")
+		m.diffView.SetContent(fmt.Sprintf(
+			"Diff unavailable: note not found with superlink {Thread: %d | Branch: %d | Note: %d}.",
+			link.ThreadID,
+			link.BranchID,
+			link.NoteID,
+		))
 		return
 	}
 	m.diffView.SetContent(note.Diff)
@@ -540,10 +550,10 @@ func (m *Model) updateRecentTable() {
 func (m *Model) printSync() {
 	if m.app.Synced {
 		m.statusBar.GetTag("Synced").SetValue("Synced")
-		m.statusBar.GetTag("Synced").SetColors("232", "118")
+		m.statusBar.GetTag("Synced").SetColors(colorPtr("232"), colorPtr("118"))
 	} else {
 		m.statusBar.GetTag("Synced").SetValue("Unsynced")
-		m.statusBar.GetTag("Synced").SetColors("232", "208")
+		m.statusBar.GetTag("Synced").SetColors(colorPtr("232"), colorPtr("208"))
 	}
 }
 
@@ -607,6 +617,3 @@ func (m *Model) updateStatusBar() {
 	m.printSync()
 	m.statusBar.GetTag("Time").SetValue(time.Now().Format("15:04:05"))
 }
-
-// Here we need handling of change Table which requires extra design.
-// Let's ignore it for now.

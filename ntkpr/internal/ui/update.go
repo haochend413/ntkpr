@@ -3,7 +3,9 @@ package ui
 import (
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/haochend413/bubbles/v2/key"
+
 	// "charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 
@@ -65,15 +67,25 @@ var tableKeys = tableKeyMap{
 	DownTable:     key.NewBinding(key.WithKeys("h", "right")),
 }
 
+type recentKeyMap struct {
+	GotoDiff key.Binding
+}
+
+var recentKeys = recentKeyMap{
+	GotoDiff: key.NewBinding(key.WithKeys("D")),
+}
+
 // Edit focus keys
 type editKeyMap struct {
 	SaveAndReturn key.Binding
 	Cancel        key.Binding
+	CopyNote      key.Binding
 }
 
 var editKeys = editKeyMap{
 	SaveAndReturn: key.NewBinding(key.WithKeys("ctrl+s")),
 	Cancel:        key.NewBinding(key.WithKeys("ctrl+x")),
+	CopyNote:      key.NewBinding(key.WithKeys("ctrl+y")),
 }
 
 // Msgs
@@ -181,17 +193,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		recentColumns := []table.Column{
-			{Title: "Thread", Width: max(20, int(float64(m.width)*0.15))},
-			{Title: "Branch", Width: max(20, int(float64(m.width)*0.15))},
+			{Title: "Thread", Width: max(20, int(float64(m.width)*0.13))},
+			{Title: "Branch", Width: max(20, int(float64(m.width)*0.10))},
 			{Title: "Note", Width: max(20, int(float64(m.width)*0.25))},
-			{Title: "Flags", Width: max(8, int(float64(m.width)*0.04))},
+			{Title: "Flags", Width: max(8, int(float64(m.width)*0.06))},
 		}
 
 		// Calculate recent table width as sum of its columns
-		recentTableWidth := max(20, int(float64(m.width)*0.15)) +
-			max(20, int(float64(m.width)*0.15)) +
+		recentTableWidth := max(20, int(float64(m.width)*0.13)) +
+			max(20, int(float64(m.width)*0.10)) +
 			max(20, int(float64(m.width)*0.25)) +
-			max(8, int(float64(m.width)*0.04))
+			max(8, int(float64(m.width)*0.06))
 
 		// Set columns and width for each table with appropriate column types
 		m.threadsTable.SetColumns(threadColumns)
@@ -225,7 +237,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Changelog table (below textarea)
 		changeColumns := []table.Column{
-			{Title: "Type", Width: max(6, int(float64(editWidth)*0.15))},
+			{Title: "Type", Width: max(6, int(float64(editWidth)*0.10))},
 			{Title: "ID", Width: max(4, int(float64(editWidth)*0.10))},
 			{Title: "Time", Width: max(12, int(float64(editWidth)*0.25))},
 			{Title: "Description", Width: max(15, int(float64(editWidth)*0.40))},
@@ -237,7 +249,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		// update statusbar
-		m.statusBar.GetTag("Action").SetValue(msg.String())
+		m.statusBar.GetTag("Action").SetValue("Keypress: " + msg.String())
 		// Handle global keys first
 		switch m.viewMode {
 		case ApplicationView:
@@ -249,11 +261,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, globalKeys.SyncWithDB):
+				m.statusBar.GetTag("Action").SetValue("Started Syncing ...")
+				m.updateStatusBar()
 				m.app.SyncWithDatabase()
+				m.statusBar.GetTag("Action").SetValue("Updating UI ...")
+				m.updateStatusBar()
 				m.updateThreadsTable()
 				m.updateBranchesTable()
 				m.updateNotesTable()
 				m.updateChangelogTable()
+				m.statusBar.GetTag("Action").SetValue("Synced with database!")
 				m.updateStatusBar()
 				return m, nil
 
@@ -562,6 +579,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case key.Matches(msg, tableKeys.Back):
 					m.SetFocus(FocusNotes)
 					return m, nil
+				case key.Matches(msg, recentKeys.GotoDiff):
+					m.SetFocus(FocusDiff)
+					return m, nil
+				}
+
+			case FocusDiff:
+				switch {
+				case key.Matches(msg, tableKeys.ViewRecent):
+					m.SetFocus(FocusRecent)
+					return m, nil
 				}
 
 			case FocusChangelog:
@@ -580,6 +607,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case key.Matches(msg, editKeys.Cancel):
 					cmd1 := m.ExitEdit(false, curr_spl)
 					return m, cmd1
+				case key.Matches(msg, editKeys.CopyNote):
+					// send copy ?
+					_ = clipboard.WriteAll(m.textArea.Value())
+					return m, nil
 				}
 			}
 		case QuitConfirmView:
@@ -660,6 +691,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	case FocusRecent:
 		m.recentTable, cmd = m.recentTable.Update(msg)
+		cmds = append(cmds, cmd)
+	case FocusDiff:
+		m.diffView, cmd = m.diffView.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 

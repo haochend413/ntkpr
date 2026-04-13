@@ -126,8 +126,8 @@ func (m Model) appView() tea.View {
 	var compositor *lipgloss.Compositor
 	var output string
 
-	// Only show recent table overlay when explicitly focused on it (via R key)
-	if m.focus == FocusRecent {
+	// Keep recent+diff overlay visible while in either recent or diff focus.
+	if m.focus == FocusRecent || m.focus == FocusDiff {
 		// Recent overlay content: recent table + diff area side by side
 		recentTableBox := m.renderRecentTableBox()
 		diffTextAreaBox := m.renderdiffArea()
@@ -196,23 +196,33 @@ func (m Model) renderNotesTableBox() string {
 	}
 }
 
-func (m Model) renderChangelogTableBox() string {
-	if m.focus == FocusChangelog {
-		m.changeTable.SetStyles(styles.FocusedTableStyle)
-		return styles.FocusedStyle.BorderTitle("Changelog").Render(m.changeTable.View())
-	} else {
-		m.changeTable.SetStyles(styles.BaseTableStyle)
-		return styles.BaseStyle.BorderTitle("[5]-Changelog").Render(m.changeTable.View())
-	}
-}
+// func (m Model) renderChangelogTableBox() string {
+// 	if m.focus == FocusChangelog {
+// 		m.changeTable.SetStyles(styles.FocusedTableStyle)
+// 		return styles.FocusedStyle.BorderTitle("Changelog").Render(m.changeTable.View())
+// 	} else {
+// 		m.changeTable.SetStyles(styles.BaseTableStyle)
+// 		return styles.BaseStyle.BorderTitle("[5]-Changelog").Render(m.changeTable.View())
+// 	}
+// }
 
 func (m Model) renderRecentTableBox() string {
-	m.recentTable.SetStyles(styles.FocusedTableStyle)
-	return styles.FocusedStyle.
+	if m.focus == FocusRecent {
+		m.recentTable.SetStyles(styles.FocusedTableStyle)
+		return styles.FocusedStyle.
+			BorderTitle("Recent Edits").
+			Render(m.recentTable.View())
+	}
+
+	m.recentTable.SetStyles(styles.BaseTableStyle)
+	return styles.BaseStyle.
 		BorderTitle("Recent Edits").
 		Render(m.recentTable.View())
 }
 
 func (m Model) renderdiffArea() string {
-	return styles.FocusedStyle.BorderTitle("Diff").Render(m.diffView.View())
+	if m.focus == FocusDiff {
+		return styles.FocusedStyle.BorderTitle("Diff").Render(m.diffView.View())
+	}
+	return styles.BaseStyle.BorderTitle("Diff").Render(m.diffView.View())
 }
